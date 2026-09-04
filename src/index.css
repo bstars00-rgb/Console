@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens extracted from the original Ohmyhotel Vendor Console
+ * (https://ohmyhotel.biz). Values are refined against the live site during
+ * the visual-comparison loop; see docs/ui-specification.md.
+ */
+:root {
+  /* Brand */
+  --color-primary: #ef7f29;
+  --color-primary-hover: #e06e18;
+  --color-primary-light: #fdf0e6;
+
+  /* Text */
+  --color-ink: #333333;
+  --color-muted: #888888;
+  --color-faint: #aaaaaa;
+
+  /* Surfaces & lines */
+  --color-surface: #ffffff;
+  --color-canvas: #f5f5f5;
+  --color-line: #e0e0e0;
+  --color-line-soft: #eeeeee;
+
+  /* Status */
+  --color-success: #2e7d32;
+  --color-warning: #f5a623;
+  --color-danger: #d0021b;
+  --color-info: #1976d2;
+
+  /* Metrics */
+  --radius: 5px;
+  --control-h: 30px;
+  --header-h: 48px;
+  --sidebar-w: 220px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto,
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Thin, unobtrusive scrollbars to match the dense console feel */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8b8b8;
+  background-clip: content-box;
+}
