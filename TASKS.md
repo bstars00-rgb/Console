@@ -20,7 +20,9 @@
 - [x] Functional testing (Vitest 8 tests + Playwright 7 e2e — all passing)
 - [x] Production build (tsc + vite, 0 errors)
 - [x] GitHub Pages deployment config (workflow + relative base + HashRouter)
-- [ ] Push to GitHub + verify live Pages deploy (needs user's repo/push access)
+- [x] Push to GitHub + verify live Pages deploy
+      → repo https://github.com/bstars00-rgb/Console
+      → live https://bstars00-rgb.github.io/Console/ (Actions run succeeded, site verified)
 
 ## Verification snapshot
 - `npm run lint` ✓ 0 warnings
@@ -30,6 +32,5 @@
 - `npm run build` ✓
 - Console errors in app: 0
 
-## Remaining (requires the user)
-Create the GitHub repo, connect push access, enable Pages (Source: GitHub Actions), push `main`.
-Commands are in README.md.
+## Status: COMPLETE
+All pipeline items done. Live at https://bstars00-rgb.github.io/Console/ (auto-deploys on push to main).
