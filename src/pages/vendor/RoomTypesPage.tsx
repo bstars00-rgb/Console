@@ -3,7 +3,6 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, TextInput, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { DataStatusBadge } from '../../components/ui/Badge'
 import { useRoomTypes, useHotels } from '../../data/hooks'
 import type { RoomType } from '../../data/types'
 import { usePagedFilter } from '../../lib/usePagedFilter'
@@ -39,19 +38,22 @@ export default function RoomTypesPage() {
   }
   const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(rows, predicate, [applied])
   const sel = useSelection()
+  const [searched, setSearched] = useState(false)
+  const gridRows = searched ? pageRows : []
+  const gridTotal = searched ? total : 0
 
   const columns: Column<RoomType>[] = [
     { key: 'seq', header: 'Room Type SEQ', render: (r) => r.seq, sortable: true, sortValue: (r) => r.seq },
     { key: 'ellis', header: 'ELLIS Room Type Code', render: (r) => r.ellisRoomTypeCode },
     { key: 'cms', header: 'CMS/PMS Info', render: (r) => r.cmsInfo },
-    { key: 'status', header: 'Data Status', render: (r) => <DataStatusBadge status={r.dataStatus} /> },
+    { key: 'status', header: 'Data Status', render: (r) => r.dataStatus },
     { key: 'price', header: 'Local Price', align: 'right', render: (r) => r.localPrice },
     { key: 'name', header: 'Room Type Name(EN)', align: 'left', render: (r) => r.name.EN, sortable: true, sortValue: (r) => r.name.EN },
     { key: 'open', header: 'Open Sales', render: (r) => (r.openSales ? 'Yes' : 'No') },
   ]
 
-  const doSearch = () => { setApplied((n) => n + 1); resetPage() }
-  const reset = () => { setHotel(''); setName(''); setCms(''); setOpenSales(''); setStatus(''); setApplied((n) => n + 1); resetPage() }
+  const doSearch = () => { setApplied((n) => n + 1); resetPage(); setSearched(true) }
+  const reset = () => { setHotel(''); setName(''); setCms(''); setOpenSales(''); setStatus(''); setApplied((n) => n + 1); resetPage(); setSearched(false) }
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,17 +65,20 @@ export default function RoomTypesPage() {
         <Field label="Data status"><Select value={status} onChange={setStatus} options={STATUS} /></Field>
       </FilterPanel>
 
-      <DataGrid
-        columns={columns}
-        rows={pageRows}
-        rowKey={(r) => String(r.seq)}
-        selectable
-        selectedKeys={sel.selected}
-        onToggle={sel.toggle}
-        onToggleAll={(c) => sel.toggleAll(pageRows.map((r) => String(r.seq)), c)}
-        minWidth={900}
-      />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid
+          kendo
+          columns={columns}
+          rows={gridRows}
+          rowKey={(r) => String(r.seq)}
+          selectable
+          selectedKeys={sel.selected}
+          onToggle={sel.toggle}
+          onToggleAll={(c) => sel.toggleAll(gridRows.map((r) => String(r.seq)), c)}
+          minWidth={900}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={gridTotal} onPage={setPage} onPageSize={setPageSize} />
+      </div>
     </div>
   )
 }

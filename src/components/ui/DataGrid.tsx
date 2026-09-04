@@ -99,7 +99,7 @@ export function DataGrid<T>({
               <th
                 key={c.key}
                 className={headerTh}
-                style={{ width: c.width, textAlign: c.align ?? 'center' }}
+                style={{ width: c.width, textAlign: kendo ? 'center' : c.align ?? 'center' }}
               >
                 <button
                   type="button"
@@ -149,7 +149,7 @@ export function DataGrid<T>({
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td key={c.key} className={cellCls} style={{ textAlign: c.align ?? 'center' }}>
+                    <td key={c.key} className={cellCls} style={{ textAlign: kendo ? 'center' : c.align ?? 'center' }}>
                       {c.render(row)}
                     </td>
                   ))}

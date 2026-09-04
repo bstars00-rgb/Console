@@ -4,7 +4,6 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, TextInput, DateInput, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { PaymentStatusBadge, BookingStatusBadge } from '../../components/ui/Badge'
 import { useBillings, useBookings } from '../../data/hooks'
 import type { Billing, Booking } from '../../data/types'
 import { usePagedFilter } from '../../lib/usePagedFilter'
@@ -41,12 +40,15 @@ export default function BillingsPage() {
     return true
   }
   const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(billings, predicate, [applied])
+  const [searched, setSearched] = useState(false)
+  const gridRows = searched ? pageRows : []
+  const gridTotal = searched ? total : 0
 
   const billingCols: Column<Billing>[] = [
     { key: 'no', header: 'Billing No.', align: 'left', render: (r) => r.billingNo, sortable: true, sortValue: (r) => r.billingNo },
     { key: 'hotel', header: 'Hotel Name', align: 'left', render: (r) => r.hotelName },
     { key: 'issued', header: 'Issued Date', render: (r) => r.issuedDate, sortable: true, sortValue: (r) => r.issuedDate },
-    { key: 'pay', header: 'Payment Status', render: (r) => <PaymentStatusBadge status={r.paymentStatus} /> },
+    { key: 'pay', header: 'Payment Status', render: (r) => r.paymentStatus },
     { key: 'paid', header: 'Paid Date', render: (r) => r.paidDate ?? '-' },
     { key: 'cur', header: 'Vendor Currency', render: (r) => r.currency },
     { key: 'sum', header: 'Vendor Sum Amount', align: 'right', render: (r) => r.sumAmount.toLocaleString(), sortable: true, sortValue: (r) => r.sumAmount },
@@ -62,7 +64,7 @@ export default function BillingsPage() {
 
   const detailCols: Column<Booking>[] = [
     { key: 'code', header: 'Booking Item Code', align: 'left', render: (b) => b.ellisBookingCode },
-    { key: 'status', header: 'Booking Status', render: (b) => <BookingStatusBadge status={b.bookingStatus} /> },
+    { key: 'status', header: 'Booking Status', render: (b) => b.bookingStatus },
     { key: 'cnfm', header: 'V. CNFM No.', render: (b) => b.hotelCnfmNo },
     { key: 'hotel', header: 'Hotel Name', align: 'left', render: (b) => b.hotelName },
     { key: 'traveler', header: 'Traveler', align: 'left', render: (b) => b.travelerName },
@@ -73,8 +75,8 @@ export default function BillingsPage() {
     { key: 'disp', header: 'Dispute', render: (b) => (b.dispute ? 'Y' : 'N') },
   ]
 
-  const doSearch = () => { setApplied((n) => n + 1); resetPage(); setActiveBilling(null) }
-  const reset = () => { setStatus(''); setBillingNo(''); setCurrency(''); setBalance(''); setIssuedFrom(''); setIssuedTo(''); setApplied((n) => n + 1); resetPage() }
+  const doSearch = () => { setApplied((n) => n + 1); resetPage(); setActiveBilling(null); setSearched(true) }
+  const reset = () => { setStatus(''); setBillingNo(''); setCurrency(''); setBalance(''); setIssuedFrom(''); setIssuedTo(''); setApplied((n) => n + 1); resetPage(); setSearched(false); setActiveBilling(null) }
 
   return (
     <div className="flex flex-col gap-3">
@@ -101,25 +103,28 @@ export default function BillingsPage() {
         </div>
       </div>
 
-      <DataGrid
-        columns={billingCols}
-        rows={pageRows}
-        rowKey={(r) => r.billingNo}
-        selectable
-        selectedKeys={sel.selected}
-        onToggle={sel.toggle}
-        onToggleAll={(c) => sel.toggleAll(pageRows.map((r) => r.billingNo), c)}
-        onRowClick={(r) => setActiveBilling(r.billingNo)}
-        minWidth={1100}
-      />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid
+          kendo
+          columns={billingCols}
+          rows={gridRows}
+          rowKey={(r) => r.billingNo}
+          selectable
+          selectedKeys={sel.selected}
+          onToggle={sel.toggle}
+          onToggleAll={(c) => sel.toggleAll(gridRows.map((r) => r.billingNo), c)}
+          onRowClick={(r) => setActiveBilling(r.billingNo)}
+          minWidth={1100}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={gridTotal} onPage={setPage} onPageSize={setPageSize} />
+      </div>
 
       <div className="mt-2">
         <span className="text-base font-semibold text-ink">
           Bookings in billing {activeBilling ? <span className="text-primary">{activeBilling}</span> : <span className="text-faint">— select a billing row</span>}
         </span>
         <div className="mt-2">
-          <DataGrid columns={detailCols} rows={detailRows} rowKey={(b) => b.id} minWidth={1100} emptyMessage="Select a billing to view its bookings." maxHeight={300} />
+          <DataGrid kendo columns={detailCols} rows={detailRows} rowKey={(b) => b.id} minWidth={1100} emptyMessage="Select a billing to view its bookings." maxHeight={300} />
         </div>
         {activeBilling && detailRows.length > 0 && (
           <div className="mt-2 flex justify-end text-base text-ink">

@@ -34,20 +34,22 @@ test.describe('Ohmyhotel Vendor Console', () => {
 
   test('booking search filters the grid', async ({ page }) => {
     await login(page)
+    // Grid starts empty (like the original); Search loads the full set.
+    await page.getByRole('button', { name: 'Search' }).click()
     const before = await page.locator('table tbody tr').count()
     expect(before).toBeGreaterThan(1)
     // Filter by a specific ELLIS code that matches a single booking.
     await page.getByLabel('ELLIS Booking Code').fill('S26090001')
     await page.getByRole('button', { name: 'Search' }).click()
-    const rows = page.locator('table tbody tr')
-    await expect(rows).toHaveCount(1)
-    // Reset restores the full set.
+    await expect(page.locator('table tbody tr')).toHaveCount(1)
+    // Reset clears back to the empty grid.
     await page.getByRole('button', { name: 'Reset' }).click()
-    await expect(page.locator('table tbody tr')).toHaveCount(before)
+    await expect(page.getByText('No records available.')).toBeVisible()
   })
 
   test('booking detail opens and status changes with a toast', async ({ page }) => {
     await login(page)
+    await page.getByRole('button', { name: 'Search' }).click()
     await page.locator('table tbody tr').first().click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()

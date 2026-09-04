@@ -4,7 +4,6 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, TextInput, DateInput, Button, Checkbox } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { BookingStatusBadge, PaymentStatusBadge } from '../../components/ui/Badge'
 import { useBookings, useHotels } from '../../data/hooks'
 import { updateBookingStatus } from '../../data/store'
 import type { Booking, BookingStatus } from '../../data/types'
@@ -60,6 +59,7 @@ export default function BookingsPage() {
   const [applied, setApplied] = useState<Filters>(EMPTY)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [searched, setSearched] = useState(false)
 
   const hotelOpts = useMemo(
     () => [{ value: '', label: 'All' }, ...hotels.map((h) => ({ value: h.code, label: h.name.EN }))],
@@ -93,20 +93,25 @@ export default function BookingsPage() {
     setApplied(draft)
     resetPage()
     setSelected(new Set())
+    setSearched(true)
   }
   const reset = () => {
     setDraft(EMPTY)
     setApplied(EMPTY)
     resetPage()
+    setSearched(false)
   }
 
-  const totalSum = filtered.reduce((s, b) => s + b.sumAmount, 0)
-  const selectedSum = filtered.filter((b) => selected.has(b.id)).reduce((s, b) => s + b.sumAmount, 0)
+  // Original shows an empty grid until Search is pressed.
+  const gridRows = searched ? pageRows : []
+  const gridTotal = searched ? total : 0
+  const totalSum = searched ? filtered.reduce((s, b) => s + b.sumAmount, 0) : 0
+  const selectedSum = searched ? filtered.filter((b) => selected.has(b.id)).reduce((s, b) => s + b.sumAmount, 0) : 0
 
   const columns: Column<Booking>[] = [
     { key: 'ellis', header: 'ELLIS Booking Code', sortable: true, align: 'left', render: (b) => b.ellisBookingCode, sortValue: (b) => b.ellisBookingCode },
     { key: 'cnfm', header: 'Hotel CNFM No.', render: (b) => b.hotelCnfmNo },
-    { key: 'status', header: 'Booking Status', render: (b) => <BookingStatusBadge status={b.bookingStatus} />, sortable: true, sortValue: (b) => b.bookingStatus },
+    { key: 'status', header: 'Booking Status', render: (b) => b.bookingStatus, sortable: true, sortValue: (b) => b.bookingStatus },
     { key: 'hotel', header: 'Hotel Name', align: 'left', render: (b) => b.hotelName, sortable: true, sortValue: (b) => b.hotelName },
     { key: 'traveler', header: '1st Traveler Name', align: 'left', render: (b) => b.travelerName },
     { key: 'ci', header: 'Check-in Date / Nts', render: (b) => `${b.checkInDate} / ${b.nights}`, sortable: true, sortValue: (b) => b.checkInDate },
@@ -116,7 +121,7 @@ export default function BookingsPage() {
     { key: 'bf', header: 'Free Breakfast', render: (b) => (b.freeBreakfast ? 'Yes' : 'No') },
     { key: 'bd', header: 'Booking Date', render: (b) => b.bookingDate, sortable: true, sortValue: (b) => b.bookingDate },
     { key: 'bcd', header: 'Booking Cancel Date', render: (b) => b.bookingCancelDate ?? '-' },
-    { key: 'pay', header: 'V.Payment Status', render: (b) => <PaymentStatusBadge status={b.paymentStatus} /> },
+    { key: 'pay', header: 'V.Payment Status', render: (b) => b.paymentStatus },
     { key: 'cur', header: 'V.Currency', render: (b) => b.currency },
     { key: 'sum', header: 'V.Sum Amt', align: 'right', render: (b) => b.sumAmount.toLocaleString(), sortable: true, sortValue: (b) => b.sumAmount },
     { key: 'bill', header: 'Billing No.', render: (b) => b.billingNo ?? '-' },
@@ -208,24 +213,28 @@ export default function BookingsPage() {
         </Button>
       </div>
 
-      <DataGrid
-        columns={columns}
-        rows={pageRows}
-        rowKey={(b) => b.id}
-        selectable
-        selectedKeys={selected}
-        onToggle={(k) =>
-          setSelected((s) => {
-            const n = new Set(s)
-            if (n.has(k)) n.delete(k)
-            else n.add(k)
-            return n
-          })
-        }
-        onToggleAll={(c) => setSelected(c ? new Set(pageRows.map((b) => b.id)) : new Set())}
-        onRowClick={(b) => setDetailId(b.id)}
-        minWidth={1900}
-      />
+      <div>
+        <DataGrid
+          kendo
+          columns={columns}
+          rows={gridRows}
+          rowKey={(b) => b.id}
+          selectable
+          selectedKeys={selected}
+          onToggle={(k) =>
+            setSelected((s) => {
+              const n = new Set(s)
+              if (n.has(k)) n.delete(k)
+              else n.add(k)
+              return n
+            })
+          }
+          onToggleAll={(c) => setSelected(c ? new Set(gridRows.map((b) => b.id)) : new Set())}
+          onRowClick={(b) => setDetailId(b.id)}
+          minWidth={1900}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={gridTotal} onPage={setPage} onPageSize={setPageSize} />
+      </div>
 
       <div className="flex items-center justify-end gap-6 text-base text-ink">
         <span>
@@ -235,8 +244,6 @@ export default function BookingsPage() {
           Total Billing Sum Amount: <b>{money(totalSum, applied.currency || '')}</b>
         </span>
       </div>
-
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
 
       <BookingDetail
         booking={bookings.find((b) => b.id === detailId) ?? null}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Paperclip, Pin } from 'lucide-react'
+import { Paperclip } from 'lucide-react'
 import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { SearchInput, Select, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
@@ -37,17 +37,12 @@ export function BoardPage({
   const columns: Column<BoardPost>[] = [
     { key: 'seq', header: 'Post SEQ', width: 90, render: (p) => p.seq },
     kind === 'notice'
-      ? { key: 'pin', header: 'Pin to top', width: 80, render: (p) => (p.pinned ? <Pin size={13} className="mx-auto text-primary" /> : '-') }
-      : { key: 'type', header: 'FAQ Type', width: 110, render: (p) => <Badge tone="info">{p.type}</Badge> },
-    { key: 'title', header: 'Post Title', align: 'left', render: (p) => (
-        <span className="flex items-center gap-1.5">
-          {p.pinned && kind === 'notice' && <Badge tone="warning">Notice</Badge>}
-          {p.title}
-        </span>
-      ) },
+      ? { key: 'pin', header: 'Pin to top', width: 80, render: (p) => (p.pinned ? 'Yes' : 'No') }
+      : { key: 'type', header: 'FAQ Type', width: 110, render: (p) => p.type },
+    { key: 'title', header: 'Post Title', align: 'left', render: (p) => p.title },
     { key: 'date', header: kind === 'notice' ? 'First Insert Time' : 'Last Update Date', width: 150, render: (p) => p.date, sortable: true, sortValue: (p) => p.date },
     { key: 'views', header: 'View Counts', width: 110, render: (p) => p.views.toLocaleString(), sortable: true, sortValue: (p) => p.views },
-    { key: 'file', header: 'Attached File', width: 110, render: (p) => (p.hasAttachment ? <Paperclip size={13} className="mx-auto text-muted" /> : 'No') },
+    { key: 'file', header: 'Attached File', width: 110, render: (p) => (p.hasAttachment ? 'Yes' : 'No') },
   ]
 
   return (
@@ -57,8 +52,10 @@ export function BoardPage({
         <Field label="Search" span={2}><SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search title" /></Field>
       </FilterPanel>
 
-      <DataGrid columns={columns} rows={pageRows} rowKey={(p) => String(p.seq)} onRowClick={(p) => setOpen(p)} minWidth={760} />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid kendo columns={columns} rows={pageRows} rowKey={(p) => String(p.seq)} onRowClick={(p) => setOpen(p)} minWidth={760} />
+        <Pager kendo page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      </div>
 
       <Modal open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ''} width={620}>
         {open && (

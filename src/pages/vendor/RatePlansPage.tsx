@@ -4,7 +4,6 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, TextInput, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { DataStatusBadge } from '../../components/ui/Badge'
 import { useRatePlans, useHotels } from '../../data/hooks'
 import type { RatePlan } from '../../data/types'
 import { usePagedFilter } from '../../lib/usePagedFilter'
@@ -36,6 +35,9 @@ export default function RatePlansPage() {
     return true
   }
   const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(rows, predicate, [applied])
+  const [searched, setSearched] = useState(false)
+  const gridRows = searched ? pageRows : []
+  const gridTotal = searched ? total : 0
 
   const columns: Column<RatePlan>[] = [
     { key: 'rtseq', header: 'Room Type SEQ', render: (r) => r.roomTypeSeq },
@@ -45,15 +47,15 @@ export default function RatePlansPage() {
     { key: 'pseq', header: 'Plan SEQ', render: (r) => r.planSeq, sortable: true, sortValue: (r) => r.planSeq },
     { key: 'ellisp', header: 'ELLIS Room Plan Code', render: (r) => r.ellisRoomPlanCode },
     { key: 'cmsp', header: 'CMS Plan Code', render: (r) => r.cmsPlanCode },
-    { key: 'status', header: 'Data Status', render: (r) => <DataStatusBadge status={r.dataStatus} /> },
+    { key: 'status', header: 'Data Status', render: (r) => r.dataStatus },
     { key: 'charge', header: 'Room Charge', align: 'right', render: (r) => r.roomCharge },
     { key: 'pen', header: 'Plan Name(EN)', align: 'left', render: (r) => r.planName.EN },
     { key: 'contract', header: 'Contract Type', render: (r) => r.contractType },
     { key: 'open', header: 'Open Sales', render: (r) => (r.openSales ? 'Yes' : 'No') },
   ]
 
-  const doSearch = () => { setApplied((n) => n + 1); resetPage() }
-  const reset = () => { setHotel(''); setPlanName(''); setContract(''); setOpenSales(''); setApplied((n) => n + 1); resetPage() }
+  const doSearch = () => { setApplied((n) => n + 1); resetPage(); setSearched(true) }
+  const reset = () => { setHotel(''); setPlanName(''); setContract(''); setOpenSales(''); setApplied((n) => n + 1); resetPage(); setSearched(false) }
 
   return (
     <div className="flex flex-col gap-3">
@@ -69,17 +71,20 @@ export default function RatePlansPage() {
         <Button variant="secondary" disabled={sel.selected.size === 0} onClick={() => toast.push(`Copied ${sel.selected.size} plan(s) (mock)`, 'success')}><Copy size={14} /> Copy</Button>
       </div>
 
-      <DataGrid
-        columns={columns}
-        rows={pageRows}
-        rowKey={(r) => `${r.roomTypeSeq}-${r.planSeq}`}
-        selectable
-        selectedKeys={sel.selected}
-        onToggle={sel.toggle}
-        onToggleAll={(c) => sel.toggleAll(pageRows.map((r) => `${r.roomTypeSeq}-${r.planSeq}`), c)}
-        minWidth={1500}
-      />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid
+          kendo
+          columns={columns}
+          rows={gridRows}
+          rowKey={(r) => `${r.roomTypeSeq}-${r.planSeq}`}
+          selectable
+          selectedKeys={sel.selected}
+          onToggle={sel.toggle}
+          onToggleAll={(c) => sel.toggleAll(gridRows.map((r) => `${r.roomTypeSeq}-${r.planSeq}`), c)}
+          minWidth={1500}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={gridTotal} onPage={setPage} onPageSize={setPageSize} />
+      </div>
     </div>
   )
 }

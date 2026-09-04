@@ -33,6 +33,9 @@ export default function PromotionPage() {
     return true
   }
   const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(rows, predicate, [applied])
+  const [searched, setSearched] = useState(false)
+  const gridRows = searched ? pageRows : []
+  const gridTotal = searched ? total : 0
 
   const columns: Column<Promotion>[] = [
     { key: 'rtseq', header: 'Room Type SEQ', render: (r) => r.roomTypeSeq },
@@ -50,8 +53,8 @@ export default function PromotionPage() {
     { key: 'open', header: 'Open Sales', render: (r) => (r.openSales ? 'Yes' : 'No') },
   ]
 
-  const doSearch = () => { setApplied((n) => n + 1); resetPage() }
-  const reset = () => { setHotel(''); setType(''); setOpenSales(''); setApplied((n) => n + 1); resetPage() }
+  const doSearch = () => { setApplied((n) => n + 1); resetPage(); setSearched(true) }
+  const reset = () => { setHotel(''); setType(''); setOpenSales(''); setApplied((n) => n + 1); resetPage(); setSearched(false) }
 
   return (
     <div className="flex flex-col gap-3">
@@ -67,17 +70,20 @@ export default function PromotionPage() {
         <Button variant="secondary" disabled={sel.selected.size === 0} onClick={() => toast.push(`Bulk updated ${sel.selected.size} promotion(s)`, 'success')}><Layers size={14} /> Bulk Update</Button>
       </div>
 
-      <DataGrid
-        columns={columns}
-        rows={pageRows}
-        rowKey={(r) => String(r.promotionSeq)}
-        selectable
-        selectedKeys={sel.selected}
-        onToggle={sel.toggle}
-        onToggleAll={(c) => sel.toggleAll(pageRows.map((r) => String(r.promotionSeq)), c)}
-        minWidth={1700}
-      />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid
+          kendo
+          columns={columns}
+          rows={gridRows}
+          rowKey={(r) => String(r.promotionSeq)}
+          selectable
+          selectedKeys={sel.selected}
+          onToggle={sel.toggle}
+          onToggleAll={(c) => sel.toggleAll(gridRows.map((r) => String(r.promotionSeq)), c)}
+          minWidth={1700}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={gridTotal} onPage={setPage} onPageSize={setPageSize} />
+      </div>
     </div>
   )
 }
