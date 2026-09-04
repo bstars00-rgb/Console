@@ -5,11 +5,11 @@
  */
 export function FilterPanel({ actions, children }: { actions: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="relative rounded border border-line bg-canvas/50 px-4 py-3">
+    <div className="relative border-b border-line pb-3">
       <div className="grid grid-cols-1 gap-x-5 gap-y-2.5 pr-0 md:grid-cols-2 md:pr-[160px] xl:grid-cols-3 2xl:grid-cols-4">
         {children}
       </div>
-      <div className="mt-3 flex justify-end gap-2 md:absolute md:right-4 md:top-3 md:mt-0">{actions}</div>
+      <div className="mt-3 flex justify-end gap-2 md:absolute md:right-0 md:top-0 md:mt-0">{actions}</div>
     </div>
   )
 }

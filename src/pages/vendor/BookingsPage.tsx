@@ -186,7 +186,7 @@ export default function BookingsPage() {
           <Select value={draft.contract} onChange={(v) => setDraft({ ...draft, contract: v })} options={CONTRACT_OPTS} />
         </Field>
         <Field label="ELLIS Booking Code">
-          <TextInput className="w-full" value={draft.ellis} onChange={(e) => setDraft({ ...draft, ellis: e.target.value })} />
+          <TextInput aria-label="ELLIS Booking Code" className="w-full" value={draft.ellis} onChange={(e) => setDraft({ ...draft, ellis: e.target.value })} />
         </Field>
         <Field label="V.Currency">
           <Select value={draft.currency} onChange={(v) => setDraft({ ...draft, currency: v })} options={CURRENCY_OPTS} />

@@ -1,14 +1,25 @@
 # Known Differences — Clone vs Original
 
-> Records intentional or unavoidable differences between the clone and the original,
-> with reason and scope. Populated during the visual-comparison loop.
+Intentional or unavoidable differences, with reason and scope. The clone reproduces the
+original's structure, layout, and measured design tokens; the differences below are the
+deliberate consequences of building a self-contained, data-safe prototype.
 
-| # | Screen | Difference | Reason | Scope |
-|---|--------|-----------|--------|-------|
-| — | — | _none recorded yet_ | — | — |
+| # | Area | Difference | Reason | Scope |
+|---|------|-----------|--------|-------|
+| 1 | Data | Grids are populated (34 bookings, 3 hotels, 9 room types, billings, 9 notices) | The live *test* account has mostly empty grids; the clone ships realistic mock data so every screen is demonstrable | All grid screens |
+| 2 | Images | Hotel/room photos are generated SVG placeholders | Original photos are CDN-hosted operational assets we don't copy; keeps the app self-contained & offline | Hotel Content, room cards, voucher |
+| 3 | Auth | Login accepts any `@ohmyhotel.*` email / non-empty password | No real auth server is contacted (safety + prototype) | Login |
+| 4 | Actions | Save / confirm / cancel / billing-issue / export / bulk are mocked client-side | No write access to real systems; state persists to localStorage instead | All screens |
+| 5 | Hotel Content detail | The editor (basic info / facilities / policies / rooms / images / completeness) is a designed reconstruction | The live test account's Hotel Content grid rows were not click-to-detail (Kendo grid, cursor:default), so the editor follows the audited list columns + standard OTA extranet conventions | Hotel Content |
+| 6 | Fonts | Pretendard loaded from a public CDN | Same family as the original; sub-pixel rendering may differ per OS/browser | Global |
+| 7 | Layout presets | "Layout 1 / Layout 2" are visual icon toggles only | Their exact behaviour wasn't exercised during the read-only audit | Header |
+| 8 | Charts | Dashboard uses Recharts with computed mock KPIs | Original chart internals weren't inspected; the clone shows equivalent reservation/ADR/revenue visualisations | Dashboard |
+| 9 | i18n | Full UI translation is limited to login + language plumbing; screens are English | Scope: demonstrate the language selector the original offers without translating every screen | Global |
+| 10 | Support chat | Static launcher button (no live chat) | Third-party live widget not reproduced | Global |
 
-## Categories of expected, acceptable differences
-- **Dynamic data**: original shows live bookings/rates; clone uses fixed mock data.
-- **External images**: original hotel/room photos are CDN-hosted; clone uses placeholder assets.
-- **Fonts**: Pretendard is loaded from a public CDN; sub-pixel rendering may differ per OS/browser.
-- **Third-party widgets**: any embedded live components are represented with static equivalents.
+## Visual comparison notes
+The in-app browser renders the 1440×900 viewport scaled to an 800px capture, so pixel-diff
+was performed at layout scale. Structural fidelity (sidebar 180px `#E4E4E4` + dark logo block,
+44px header, 30px tab strip, white content, filter panel, 40px/weight-600 grid headers,
+`#EF7F29` primary, 12px base / 14px grid) was matched against **measured computed styles**
+from the live site rather than screenshot diffing alone, which is more precise for tokens.

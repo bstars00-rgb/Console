@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, LayoutGrid, LayoutList } from 'lucide-react'
 import { logout, getSession } from '../../auth/session'
+import { resetDemo } from '../../data/store'
 import { LANGUAGES, getLang, setLang, type LangCode } from '../../i18n/lang'
 import { ConfirmDialog } from '../ui/Modal'
 import { Modal } from '../ui/Modal'
@@ -44,6 +45,13 @@ export function Header() {
           items={[
             { label: 'User Info', onClick: () => setAccountModal('user') },
             { label: 'Corporation Profile', onClick: () => setAccountModal('corp') },
+            {
+              label: 'Reset demo data',
+              onClick: () => {
+                resetDemo()
+                toast.push('Demo data reset to defaults', 'info')
+              },
+            },
           ]}
         />
         <button className="hover:text-ink" onClick={() => setPwModal(true)}>
