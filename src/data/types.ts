@@ -33,10 +33,18 @@ export interface Hotel {
   firstInsertTime: string
   lastUpdateUser: string
   lastUpdateTime: string
-  // content-detail fields
-  address: string
+  // content-detail fields (Hotel Master modal)
+  registerStatus: 'Approval Pending' | 'Approved' | 'Sale Suspended'
+  province: string
+  additionalRegions: string[]
+  chainBrand: string
+  fax: string
+  postCode: string
   email: string
+  address: string
+  addresses: LangText
   description: string
+  descriptions: LangText
   checkIn: string
   checkOut: string
   facilities: string[]

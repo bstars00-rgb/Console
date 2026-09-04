@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, Button } from '../../components/ui/controls'
@@ -6,16 +6,10 @@ import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
 import { useHotels } from '../../data/hooks'
 import type { Hotel } from '../../data/types'
-import { HotelContentDetail } from './HotelContentDetail'
+import { HotelMasterModal } from './HotelMasterModal'
 
 export default function HotelContentPage() {
-  const { code } = useParams()
   const hotels = useHotels()
-  if (code) {
-    // Editor reachable by direct URL (extra capability beyond the original's
-    // read-only list); the list tab itself mirrors the original exactly.
-    return <HotelContentDetail code={code} />
-  }
   return <HotelList hotels={hotels} />
 }
 
@@ -43,11 +37,20 @@ const COLS: { key: string; header: string; width: number; get: (h: Hotel) => str
 const GRID_MIN_WIDTH = COLS.reduce((s, c) => s + c.width, 0)
 
 function HotelList({ hotels }: { hotels: Hotel[] }) {
+  const { code } = useParams()
   const [hotel, setHotel] = useState('')
   // Original shows an empty grid ("0 - 0 of 0 items") until Search is pressed.
   const [results, setResults] = useState<Hotel[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  // Clicking a hotel opens the "Hotel Master" popup (matches the original).
+  const [openCode, setOpenCode] = useState<string | null>(code ?? null)
+  const openHotel = openCode ? hotels.find((h) => h.code === openCode) ?? null : null
+
+  // Direct URL /hotel-content/:code auto-opens that hotel's popup and shows the list behind it.
+  useEffect(() => {
+    if (code) setResults(hotels)
+  }, [code, hotels])
 
   const hotelOpts = useMemo(
     () => [{ value: '', label: 'Select' }, ...hotels.map((h) => ({ value: h.code, label: h.name.EN }))],
@@ -101,10 +104,13 @@ function HotelList({ hotels }: { hotels: Hotel[] }) {
           columns={columns}
           rows={pageRows}
           rowKey={(h) => h.code}
+          onRowClick={(h) => setOpenCode(h.code)}
           minWidth={GRID_MIN_WIDTH}
         />
         <Pager kendo page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1) }} />
       </div>
+
+      {openHotel && <HotelMasterModal hotel={openHotel} onClose={() => setOpenCode(null)} />}
     </div>
   )
 }

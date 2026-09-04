@@ -60,27 +60,26 @@ test.describe('Ohmyhotel Vendor Console', () => {
     await expect(page.getByRole('alert').first()).toBeVisible()
   })
 
-  test('hotel content edits and persists across reload', async ({ page }) => {
+  test('hotel content popup edits and persists across reload', async ({ page }) => {
     await login(page)
     await page.goto('/#/vendor/hotel-content/1001097')
-    const desc = page.locator('main textarea').first()
-    await expect(desc).toBeVisible()
-    await desc.fill('Edited by Playwright e2e test.')
-    const save = page.getByRole('button', { name: 'Save' })
-    await expect(save).toBeEnabled()
-    await save.click()
+    const dialog = page.getByRole('dialog', { name: 'Hotel Master' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByLabel('Fax No.').fill('82-2-9999-8888')
+    await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('alert').first()).toBeVisible()
+    // Reload (same hash URL) — the modal auto-opens from the :code param with the persisted value.
     await page.reload()
-    await expect(page.locator('main textarea').first()).toHaveValue('Edited by Playwright e2e test.')
+    await expect(page.getByRole('dialog', { name: 'Hotel Master' }).getByLabel('Fax No.')).toHaveValue('82-2-9999-8888')
   })
 
-  test('required-field validation blocks save', async ({ page }) => {
+  test('required-field validation blocks save in popup', async ({ page }) => {
     await login(page)
     await page.goto('/#/vendor/hotel-content/1001097')
-    // The first textbox in main is the required English name field.
-    await page.locator('main').getByRole('textbox').first().fill('')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText('English name is required')).toBeVisible()
+    const dialog = page.getByRole('dialog', { name: 'Hotel Master' })
+    await dialog.getByLabel('Hotel Name (EN)').fill('')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(dialog.getByText('Required').first()).toBeVisible()
   })
 
   test('no horizontal overflow on mobile', async ({ page }) => {
