@@ -1,71 +1,110 @@
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { DataStatusBadge } from '../../components/ui/Badge'
 import { useHotels } from '../../data/hooks'
 import type { Hotel } from '../../data/types'
-import { usePagedFilter } from '../../lib/usePagedFilter'
-import { useWorkspace } from '../../components/shell/workspace'
 import { HotelContentDetail } from './HotelContentDetail'
 
 export default function HotelContentPage() {
   const { code } = useParams()
   const hotels = useHotels()
   if (code) {
+    // Editor reachable by direct URL (extra capability beyond the original's
+    // read-only list); the list tab itself mirrors the original exactly.
     return <HotelContentDetail code={code} />
   }
   return <HotelList hotels={hotels} />
 }
 
+// Column widths measured from the original Kendo grid.
+const COLS: { key: string; header: string; width: number; get: (h: Hotel) => string }[] = [
+  { key: 'code', header: 'Code', width: 100, get: (h) => h.code },
+  { key: 'grade', header: 'Grade', width: 80, get: (h) => h.grade },
+  { key: 'en', header: 'Hotel Name(EN)', width: 300, get: (h) => h.name.EN },
+  { key: 'ko', header: 'Hotel Name(KO)', width: 300, get: (h) => h.name.KO },
+  { key: 'ja', header: 'Hotel Name(JA)', width: 300, get: (h) => h.name.JA },
+  { key: 'vi', header: 'Hotel Name(VI)', width: 300, get: (h) => h.name.VI },
+  { key: 'zh', header: 'Hotel Name(ZH)', width: 300, get: (h) => h.name.ZH },
+  { key: 'status', header: 'Status', width: 100, get: (h) => h.status },
+  { key: 'type', header: 'Hotel Type', width: 180, get: (h) => h.hotelType },
+  { key: 'phone', header: 'Phone No.', width: 180, get: (h) => h.phone },
+  { key: 'country', header: 'Country', width: 150, get: (h) => h.country },
+  { key: 'region', header: 'Region Name', width: 200, get: (h) => h.regionName },
+  { key: 'rcode', header: 'Region Code', width: 150, get: (h) => h.regionCode },
+  { key: 'areas', header: 'Areas', width: 100, get: (h) => String(h.areas) },
+  { key: 'fiu', header: 'First Insert User', width: 100, get: (h) => h.firstInsertUser },
+  { key: 'fit', header: 'First Insert Time', width: 180, get: (h) => h.firstInsertTime },
+  { key: 'luu', header: 'Last Update User', width: 100, get: (h) => h.lastUpdateUser },
+  { key: 'lut', header: 'Last Update Time', width: 180, get: (h) => h.lastUpdateTime },
+]
+const GRID_MIN_WIDTH = COLS.reduce((s, c) => s + c.width, 0)
+
 function HotelList({ hotels }: { hotels: Hotel[] }) {
-  const navigate = useNavigate()
   const [hotel, setHotel] = useState('')
-  const [applied, setApplied] = useState(0)
-  useWorkspace() // keep tab context available
+  // Original shows an empty grid ("0 - 0 of 0 items") until Search is pressed.
+  const [results, setResults] = useState<Hotel[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
-  const hotelOpts = useMemo(() => [{ value: '', label: 'All' }, ...hotels.map((h) => ({ value: h.code, label: h.name.EN }))], [hotels])
-  const predicate = (h: Hotel) => (hotel ? h.code === hotel : true)
-  const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(hotels, predicate, [applied])
+  const hotelOpts = useMemo(
+    () => [{ value: '', label: 'Select' }, ...hotels.map((h) => ({ value: h.code, label: h.name.EN }))],
+    [hotels],
+  )
 
-  const columns: Column<Hotel>[] = [
-    { key: 'code', header: 'Code', width: 80, render: (h) => h.code, sortable: true, sortValue: (h) => h.code },
-    { key: 'grade', header: 'Grade', width: 60, render: (h) => `${h.grade}★` },
-    { key: 'en', header: 'Hotel Name(EN)', align: 'left', render: (h) => <span className="text-primary hover:underline">{h.name.EN}</span>, sortable: true, sortValue: (h) => h.name.EN },
-    { key: 'ko', header: 'Hotel Name(KO)', align: 'left', render: (h) => h.name.KO },
-    { key: 'ja', header: 'Hotel Name(JA)', align: 'left', render: (h) => h.name.JA },
-    { key: 'vi', header: 'Hotel Name(VI)', align: 'left', render: (h) => h.name.VI },
-    { key: 'zh', header: 'Hotel Name(ZH)', align: 'left', render: (h) => h.name.ZH },
-    { key: 'status', header: 'Status', render: (h) => <DataStatusBadge status={h.status} /> },
-    { key: 'type', header: 'Hotel Type', render: (h) => h.hotelType },
-    { key: 'phone', header: 'Phone No.', render: (h) => h.phone },
-    { key: 'country', header: 'Country', render: (h) => h.country },
-    { key: 'region', header: 'Region Name', render: (h) => h.regionName },
-    { key: 'rcode', header: 'Region Code', render: (h) => h.regionCode },
-    { key: 'areas', header: 'Areas', render: (h) => h.areas },
-    { key: 'fiu', header: 'First Insert User', align: 'left', render: (h) => h.firstInsertUser },
-    { key: 'fit', header: 'First Insert Time', render: (h) => h.firstInsertTime },
-    { key: 'luu', header: 'Last Update User', align: 'left', render: (h) => h.lastUpdateUser },
-    { key: 'lut', header: 'Last Update Time', render: (h) => h.lastUpdateTime },
-  ]
+  const search = () => {
+    setResults(hotel ? hotels.filter((h) => h.code === hotel) : hotels)
+    setPage(1)
+  }
+  const reset = () => {
+    setHotel('')
+    setResults([])
+    setPage(1)
+  }
+
+  const total = results.length
+  const pageRows = results.slice((page - 1) * pageSize, page * pageSize)
+
+  // Plain, center-aligned text cells — exactly like the original (no links/badges).
+  const columns: Column<Hotel>[] = COLS.map((c) => ({
+    key: c.key,
+    header: c.header,
+    width: c.width,
+    align: 'center',
+    render: (h) => c.get(h) || ' ',
+  }))
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterPanel actions={<><Button variant="primary" onClick={() => { setApplied((n) => n + 1); resetPage() }}>Search</Button><Button variant="secondary" onClick={() => { setHotel(''); setApplied((n) => n + 1); resetPage() }}>Reset</Button></>}>
-        <Field label="Hotel"><Select value={hotel} onChange={setHotel} options={hotelOpts} clearable /></Field>
+      <FilterPanel
+        actions={
+          <>
+            <Button variant="primary" onClick={search}>
+              Search
+            </Button>
+            <Button variant="secondary" onClick={reset}>
+              Reset
+            </Button>
+          </>
+        }
+      >
+        <Field label="Hotel">
+          <Select value={hotel} onChange={setHotel} options={hotelOpts} placeholder="Select" clearable />
+        </Field>
       </FilterPanel>
 
-      <p className="text-caption text-muted">Click a hotel row to open and edit its content.</p>
-      <DataGrid
-        columns={columns}
-        rows={pageRows}
-        rowKey={(h) => h.code}
-        onRowClick={(h) => navigate(`/vendor/hotel-content/${h.code}`)}
-        minWidth={2100}
-      />
-      <Pager page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
+      <div>
+        <DataGrid
+          kendo
+          columns={columns}
+          rows={pageRows}
+          rowKey={(h) => h.code}
+          minWidth={GRID_MIN_WIDTH}
+        />
+        <Pager kendo page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1) }} />
+      </div>
     </div>
   )
 }

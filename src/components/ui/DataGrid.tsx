@@ -32,6 +32,7 @@ export function DataGrid<T>({
   minWidth,
   maxHeight = 460,
   emptyMessage,
+  kendo = false,
 }: {
   columns: Column<T>[]
   rows: T[]
@@ -44,6 +45,9 @@ export function DataGrid<T>({
   minWidth?: number
   maxHeight?: number
   emptyMessage?: string
+  /** Faithful Kendo styling (Hotel Content): #F6F6F6 header, #656565 borderless
+   *  cells, 40px rows, alternating rows — matches the original grid exactly. */
+  kendo?: boolean
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
 
@@ -68,11 +72,18 @@ export function DataGrid<T>({
   const toggleSort = (key: string) =>
     setSort((s) => (s?.key === key ? (s.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }))
 
+  const headerTr = kendo
+    ? 'h-10 bg-[#F6F6F6] text-base font-semibold text-ink'
+    : 'h-10 bg-canvas text-base font-semibold text-ink'
+  const headerTh = kendo
+    ? 'whitespace-nowrap border-b border-grid-line px-2 py-2.5 font-semibold'
+    : 'whitespace-nowrap border-b border-r border-grid-line px-2 last:border-r-0'
+
   return (
-    <div className="overflow-auto rounded border border-grid-line" style={{ maxHeight }}>
+    <div className={`overflow-auto border border-grid-line ${kendo ? '' : 'rounded'}`} style={{ maxHeight }}>
       <table className="w-full border-collapse text-md" style={{ minWidth }}>
         <thead className="sticky top-0 z-10">
-          <tr className="h-10 bg-canvas text-base font-semibold text-ink">
+          <tr className={headerTr}>
             {selectable && (
               <th className="w-9 border-b border-grid-line px-2 text-center">
                 <input
@@ -87,7 +98,7 @@ export function DataGrid<T>({
             {columns.map((c) => (
               <th
                 key={c.key}
-                className="whitespace-nowrap border-b border-r border-grid-line px-2 last:border-r-0"
+                className={headerTh}
                 style={{ width: c.width, textAlign: c.align ?? 'center' }}
               >
                 <button
@@ -111,33 +122,34 @@ export function DataGrid<T>({
               </td>
             </tr>
           ) : (
-            sorted.map((row) => {
+            sorted.map((row, ri) => {
               const k = rowKey(row)
-              return (
-                <tr
-                  key={k}
-                  onClick={() => onRowClick?.(row)}
-                  className={`h-9 border-b border-grid-line bg-white text-md hover:bg-primary-light/40 ${
+              const selected = selectedKeys?.has(k)
+              const rowCls = kendo
+                ? `h-10 text-base text-muted ${ri % 2 === 1 ? 'bg-[#FAFAFA]' : 'bg-white'} hover:bg-[#F1F1F1] ${
                     onRowClick ? 'cursor-pointer' : ''
-                  } ${selectedKeys?.has(k) ? 'bg-primary-light/60' : ''}`}
-                >
+                  } ${selected ? 'bg-primary-light/60' : ''}`
+                : `h-9 border-b border-grid-line bg-white text-md hover:bg-primary-light/40 ${
+                    onRowClick ? 'cursor-pointer' : ''
+                  } ${selected ? 'bg-primary-light/60' : ''}`
+              const cellCls = kendo
+                ? 'whitespace-nowrap px-2.5 py-[5px] text-muted'
+                : 'whitespace-nowrap border-r border-grid-line px-2 text-ink last:border-r-0'
+              return (
+                <tr key={k} onClick={() => onRowClick?.(row)} className={rowCls}>
                   {selectable && (
-                    <td className="border-r border-grid-line px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className={`px-2 text-center ${kendo ? '' : 'border-r border-grid-line'}`} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         aria-label="Select row"
-                        checked={selectedKeys?.has(k) ?? false}
+                        checked={selected ?? false}
                         onChange={() => onToggle?.(k)}
                         className="h-3.5 w-3.5 accent-primary"
                       />
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td
-                      key={c.key}
-                      className="whitespace-nowrap border-r border-grid-line px-2 text-ink last:border-r-0"
-                      style={{ textAlign: c.align ?? 'center' }}
-                    >
+                    <td key={c.key} className={cellCls} style={{ textAlign: c.align ?? 'center' }}>
                       {c.render(row)}
                     </td>
                   ))}
