@@ -12,13 +12,17 @@ export default {
         },
         // Text
         ink: '#333333',
-        muted: '#888888',
+        muted: '#666666',
         faint: '#AAAAAA',
         // Surfaces / borders
         line: '#E0E0E0',
         'line-soft': '#EEEEEE',
+        'grid-line': 'rgba(0,0,0,0.08)',
         surface: '#FFFFFF',
         canvas: '#F5F5F5',
+        sidebar: '#E4E4E4',
+        'sidebar-dark': '#333333',
+        'sidebar-hover': '#D8D8D8',
         // Status
         success: '#2E7D32',
         warning: '#F5A623',
@@ -51,8 +55,9 @@ export default {
         sm: '3px',
       },
       spacing: {
-        header: '48px',
-        sidebar: '220px',
+        header: '44px',
+        sidebar: '180px',
+        tabbar: '30px',
         control: '30px',
         row: '40px',
       },

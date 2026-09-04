@@ -5,19 +5,35 @@
 interface LogoProps {
   /** Overall height in px; width scales with the mark. */
   height?: number
-  /** Show the "OHMYHOTEL&CO" wordmark under the citrus mark. */
+  /** Show the "OHMYHOTEL&CO" wordmark next to / under the citrus mark. */
   withWordmark?: boolean
+  /** Lay the wordmark to the right of the mark (header) vs. below (login). */
+  horizontal?: boolean
+  /** Wordmark text color (e.g. white on the dark sidebar block). */
+  wordmarkColor?: string
   className?: string
 }
 
-export function Logo({ height = 74, withWordmark = true, className }: LogoProps) {
+export function Logo({
+  height = 74,
+  withWordmark = true,
+  horizontal = false,
+  wordmarkColor = '#4a4a4a',
+  className,
+}: LogoProps) {
+  const markSize = withWordmark && !horizontal ? height * 0.62 : height
   return (
     <div
       className={className}
-      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
+      style={{
+        display: 'inline-flex',
+        flexDirection: horizontal ? 'row' : 'column',
+        alignItems: 'center',
+        gap: horizontal ? 7 : 6,
+      }}
     >
-      <CitrusMark size={withWordmark ? height * 0.62 : height} />
-      {withWordmark && <Wordmark height={height * 0.16} />}
+      <CitrusMark size={horizontal ? height : markSize} />
+      {withWordmark && <Wordmark height={horizontal ? height * 0.42 : height * 0.16} color={wordmarkColor} />}
     </div>
   )
 }
@@ -34,7 +50,7 @@ function CitrusMark({ size }: { size: number }) {
   )
 }
 
-function Wordmark({ height }: { height: number }) {
+function Wordmark({ height, color = '#4a4a4a' }: { height: number; color?: string }) {
   // Simple text wordmark; letter-spacing approximates the original.
   return (
     <span
@@ -43,7 +59,7 @@ function Wordmark({ height }: { height: number }) {
         lineHeight: 1,
         fontWeight: 800,
         letterSpacing: '0.06em',
-        color: '#4a4a4a',
+        color,
         whiteSpace: 'nowrap',
       }}
     >
