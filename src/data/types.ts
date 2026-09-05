@@ -10,6 +10,31 @@ export type Currency = 'USD' | 'KRW' | 'JPY' | 'VND' | 'CNY'
 export type DataStatus = 'Approved' | 'Pending' | 'Rejected' | 'Draft'
 export type MealType = 'Room Only' | 'Breakfast' | 'Half Board' | 'Full Board'
 
+// ---- Content-booster ("Boost your hotel") types -------------------------
+export type PhotoCategory =
+  | 'exterior'
+  | 'lobby'
+  | 'restaurant'
+  | 'pool'
+  | 'facility'
+  | 'room'
+  | 'bedroom'
+  | 'bathroom'
+  | 'view'
+  | 'other'
+
+export type PublishStatus =
+  | 'Editing'
+  | 'Saving'
+  | 'Saved'
+  | 'Draft'
+  | 'Needs review'
+  | 'Published'
+  | 'Rejected'
+
+/** Who last touched the content — used by internal sales staff overview. */
+export type ContentEditor = 'hotel' | 'internal'
+
 export interface LangText {
   EN: string
   KO: string
@@ -50,6 +75,19 @@ export interface Hotel {
   facilities: string[]
   policies: string[]
   images: HotelImage[]
+  // location & booster metadata (optional mock fields)
+  latitude?: number
+  longitude?: number
+  nearby?: NearbyPlace[]
+  publishStatus?: PublishStatus
+  contentUpdatedBy?: ContentEditor
+  translationReview?: Partial<Record<keyof LangText, boolean>>
+}
+
+export interface NearbyPlace {
+  name: string
+  category: 'Transport' | 'Attraction' | 'Dining' | 'Shopping'
+  distanceKm: number
 }
 
 export interface HotelImage {
@@ -57,6 +95,10 @@ export interface HotelImage {
   url: string
   caption: string
   isRepresentative: boolean
+  category?: PhotoCategory
+  tags?: string[]
+  width?: number
+  height?: number
 }
 
 export interface RoomType {
@@ -71,6 +113,10 @@ export interface RoomType {
   amenities: string[]
   maxOccupancy: number
   images: HotelImage[]
+  // room-detail booster fields (optional mock)
+  sizeSqm?: number
+  bedConfig?: string
+  view?: string
 }
 
 export interface RatePlan {

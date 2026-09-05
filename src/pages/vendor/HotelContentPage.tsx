@@ -4,9 +4,24 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { useHotels } from '../../data/hooks'
-import type { Hotel } from '../../data/types'
+import { useHotels, useRoomTypes } from '../../data/hooks'
+import type { Hotel, RoomType } from '../../data/types'
 import { HotelMasterModal } from './HotelMasterModal'
+import { computeContentScore } from '../../lib/contentScore'
+
+/** Content-score badge for internal staff to spot low-completeness hotels. */
+function ContentBadge({ hotel, rooms }: { hotel: Hotel; rooms: RoomType[] }) {
+  const { total, band } = computeContentScore(hotel, rooms.filter((r) => r.hotelCode === hotel.code))
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-caption font-semibold"
+      style={{ color: band.color, background: `${band.color}1a` }}
+      title={`콘텐츠 경쟁력 ${total}점 · ${band.labelKo}`}
+    >
+      Content {total}
+    </span>
+  )
+}
 
 export default function HotelContentPage() {
   const hotels = useHotels()
@@ -34,10 +49,11 @@ const COLS: { key: string; header: string; width: number; get: (h: Hotel) => str
   { key: 'luu', header: 'Last Update User', width: 100, get: (h) => h.lastUpdateUser },
   { key: 'lut', header: 'Last Update Time', width: 180, get: (h) => h.lastUpdateTime },
 ]
-const GRID_MIN_WIDTH = COLS.reduce((s, c) => s + c.width, 0)
+const GRID_MIN_WIDTH = COLS.reduce((s, c) => s + c.width, 0) + 110 // + Content column
 
 function HotelList({ hotels }: { hotels: Hotel[] }) {
   const { code } = useParams()
+  const rooms = useRoomTypes()
   const [hotel, setHotel] = useState('')
   // Original shows an empty grid ("0 - 0 of 0 items") until Search is pressed.
   const [results, setResults] = useState<Hotel[]>([])
@@ -71,13 +87,13 @@ function HotelList({ hotels }: { hotels: Hotel[] }) {
   const pageRows = results.slice((page - 1) * pageSize, page * pageSize)
 
   // Plain, center-aligned text cells — exactly like the original (no links/badges).
-  const columns: Column<Hotel>[] = COLS.map((c) => ({
-    key: c.key,
-    header: c.header,
-    width: c.width,
-    align: 'center',
-    render: (h) => c.get(h) || ' ',
-  }))
+  const plain = (c: (typeof COLS)[number]): Column<Hotel> => ({ key: c.key, header: c.header, width: c.width, align: 'center', render: (h) => c.get(h) || ' ' })
+  const columns: Column<Hotel>[] = [
+    plain(COLS[0]),
+    plain(COLS[1]),
+    { key: 'content', header: 'Content', width: 110, align: 'center', render: (h) => <ContentBadge hotel={h} rooms={rooms} /> },
+    ...COLS.slice(2).map(plain),
+  ]
 
   return (
     <div className="flex flex-col gap-3">

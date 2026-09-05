@@ -7,7 +7,7 @@ import { readJSON, writeJSON, clearNamespace } from '../lib/storage'
 import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS } from './seed'
 import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage } from './types'
 
-const VERSION = 4
+const VERSION = 5
 
 interface DB {
   version: number

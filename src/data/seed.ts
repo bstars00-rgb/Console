@@ -20,6 +20,8 @@ import type {
   MealType,
   LangText,
   HotelImage,
+  PhotoCategory,
+  NearbyPlace,
 } from './types'
 
 function lt(en: string, ko: string, ja: string, vi: string, zh: string): LangText {
@@ -369,4 +371,113 @@ export function buildAllotmentRows(hotelCode: string, year: number, month: numbe
       }),
     })),
   )
+}
+
+// ---- Content-booster tuning ---------------------------------------------
+// Shapes each hotel into a low / medium / high completeness example so the
+// "Boost your hotel" tab demonstrates ~32 / ~68 / ~94 Content Strength Scores.
+function boosterPhotos(
+  prefix: string,
+  cats: PhotoCategory[],
+  opts: { res?: number; tags?: boolean } = {},
+): HotelImage[] {
+  const res = opts.res ?? 1280
+  const list = cats.map((cat, i) => ({
+    id: `${prefix}-p${i}`,
+    url: placeholderImage(`${prefix} ${cat}`, i + cat.length),
+    caption: `${prefix} ${cat} photo`,
+    isRepresentative: false,
+    category: cat,
+    tags: opts.tags ? [cat] : undefined,
+    width: res,
+    height: Math.round(res * 0.7),
+  }))
+  if (list[0]) list[0].isRepresentative = true
+  return list
+}
+function roomPhotos(prefix: string, cats: PhotoCategory[], res = 1280): HotelImage[] {
+  return cats.map((cat, i) => ({
+    id: `${prefix}-r${i}`,
+    url: placeholderImage(`${prefix} ${cat}`, i + cat.length),
+    caption: `${prefix} ${cat}`,
+    isRepresentative: i === 0,
+    category: cat,
+    width: res,
+    height: Math.round(res * 0.7),
+  }))
+}
+const room = 'room' as PhotoCategory
+function repeat(cat: PhotoCategory, n: number): PhotoCategory[] {
+  return Array.from({ length: n }, () => cat)
+}
+
+function applyBoosterData() {
+  const byCode = (c: string) => HOTELS.find((h) => h.code === c)!
+  const roomsOf = (c: string) => ROOM_TYPES.filter((r) => r.hotelCode === c)
+
+  // --- Hotel A: Sakura Bay Resort Osaka (low ~32) ---
+  const a = byCode('2004521')
+  a.images = boosterPhotos('Sakura', ['exterior', 'lobby'], { res: 800 }) // low-res, no tags
+  a.facilities = ['Free Wi-Fi', 'Restaurant', 'Parking'] // 3 only
+  a.addresses = { ...a.addresses, EN: '' } // address partially missing
+  a.postCode = ''
+  a.grade = '4'
+  a.policies = [] // policies missing
+  a.descriptions = { ...a.descriptions, EN: 'A relaxed bayside resort near Osaka Bay.' } // short (<100)
+  a.publishStatus = 'Draft'
+  a.contentUpdatedBy = 'internal'
+  roomsOf('2004521').forEach((r) => {
+    r.images = [] // no room photos
+    r.sizeSqm = undefined
+    r.bedConfig = undefined
+    r.view = undefined
+  })
+
+  // --- Hotel B: Hoa Binh Independence Hotel (medium ~68) ---
+  const b = byCode('1001097')
+  b.images = boosterPhotos('Hoa Binh', ['exterior', 'lobby', 'facility', ...repeat(room, 7)]) // 10, res ok, no tags
+  b.grade = '4'
+  b.addresses = { ...b.addresses, EN: '54 Hang Bong, Hoan Kiem' }
+  b.postCode = b.postCode || '32713'
+  // "다국어 누락": keep only EN + KO descriptions
+  b.descriptions = { ...b.descriptions, JA: '', VI: '', ZH: '' }
+  b.publishStatus = 'Draft'
+  b.contentUpdatedBy = 'hotel'
+  roomsOf('1001097').forEach((r) => {
+    r.images = roomPhotos(`Room ${r.seq}`, [room, room]) // 2 photos, no bedroom/bathroom/view
+    r.sizeSqm = 28 + (r.seq % 5) * 4
+    r.bedConfig = '1 King Bed'
+    r.view = undefined // room view info missing
+  })
+
+  // --- Hotel C: Ohmy Grand Hotel Seoul (high ~94) ---
+  const c = byCode('2003011')
+  c.images = boosterPhotos('Ohmy Grand', ['exterior', 'lobby', 'restaurant', 'facility', 'pool', ...repeat(room, 17)]) // 22, res ok, no tags
+  c.grade = '5'
+  c.latitude = 37.5759
+  c.longitude = 126.9769
+  c.nearby = [
+    { name: 'Gwanghwamun Station', category: 'Transport', distanceKm: 0.3 },
+    { name: 'Gyeongbokgung Palace', category: 'Attraction', distanceKm: 0.6 },
+  ] // 2 only (nearby point not earned → keeps score at ~94)
+  c.publishStatus = 'Published'
+  c.contentUpdatedBy = 'hotel'
+  c.translationReview = { ZH: true } // translation needs review
+  roomsOf('2003011').forEach((r) => {
+    r.images = roomPhotos(`Room ${r.seq}`, ['bedroom', 'view', room, room]) // 4 photos, no bathroom
+    r.sizeSqm = 32 + (r.seq % 5) * 6
+    r.bedConfig = '1 King Bed + Sofa'
+    r.view = 'City View'
+  })
+}
+
+applyBoosterData()
+
+/** Nearby-place list used by the customer preview (kept even when un-scored). */
+export function defaultNearby(): NearbyPlace[] {
+  return [
+    { name: 'Airport Express', category: 'Transport', distanceKm: 1.2 },
+    { name: 'City Center', category: 'Attraction', distanceKm: 0.8 },
+    { name: 'Night Market', category: 'Dining', distanceKm: 0.5 },
+  ]
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { X, Search, Plus, Star, Trash2, Info } from 'lucide-react'
+import { X, Search, Plus, Star, Trash2, Info, Sparkles } from 'lucide-react'
 import { Button } from '../../components/ui/controls'
 import { useToast } from '../../components/ui/Toast'
-import { updateHotel } from '../../data/store'
+import { updateHotel, updateRoomType, getRoomTypes } from '../../data/store'
 import { placeholderImage } from '../../data/placeholder'
-import type { Hotel, HotelImage, LangText } from '../../data/types'
+import type { Hotel, HotelImage, LangText, RoomType } from '../../data/types'
+import { BoostTab } from './boost/BoostTab'
 
-type Tab = 'basic' | 'description' | 'photo'
+type Tab = 'basic' | 'description' | 'photo' | 'boost'
 
 /**
  * "Hotel Master" popup — the hotel-content detail, reproduced from the original.
@@ -17,7 +18,16 @@ export function HotelMasterModal({ hotel, onClose }: { hotel: Hotel; onClose: ()
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('basic')
   const [draft, setDraft] = useState<Hotel>(() => structuredClone(hotel))
+  const [rooms, setRooms] = useState<RoomType[]>(() => structuredClone(getRoomTypes().filter((r) => r.hotelCode === hotel.code)))
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const setRoom = (seq: number, patch: Partial<RoomType>) => setRooms((rs) => rs.map((r) => (r.seq === seq ? { ...r, ...patch } : r)))
+  /** Commit the current hotel + rooms draft to the store (used by Boost autosave). */
+  const commit = () => {
+    updateHotel(draft.code, draft)
+    rooms.forEach((r) => updateRoomType(r.seq, r))
+  }
+  const boost = tab === 'boost'
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -45,7 +55,7 @@ export function HotelMasterModal({ hotel, onClose }: { hotel: Hotel; onClose: ()
       toast.push('Please fill required fields (*)', 'error')
       return
     }
-    updateHotel(draft.code, draft)
+    commit()
     toast.push('Hotel content saved', 'success')
     onClose()
   }
@@ -53,7 +63,7 @@ export function HotelMasterModal({ hotel, onClose }: { hotel: Hotel; onClose: ()
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-black/40 p-4" onMouseDown={onClose}>
       <div
-        className="mt-[3vh] w-full max-w-[1040px] rounded bg-white shadow-modal"
+        className={`w-full rounded bg-white shadow-modal transition-all ${boost ? 'mt-[1.5vh] max-w-[1600px]' : 'mt-[3vh] max-w-[1040px]'}`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -67,22 +77,24 @@ export function HotelMasterModal({ hotel, onClose }: { hotel: Hotel; onClose: ()
           </button>
         </div>
 
-        <div className="max-h-[82vh] overflow-auto px-6 py-5">
+        <div className={`overflow-auto ${boost ? 'max-h-[93vh] bg-canvas/40 px-4 py-4' : 'max-h-[82vh] px-6 py-5'}`}>
           {/* Info block */}
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
-            <h3 className="text-lg font-bold text-ink">
-              [{draft.code}] {draft.name.EN} {draft.name.KO && <span>({draft.name.KO})</span>}
-            </h3>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-caption text-muted">
-              <span>First Insert Date : {draft.firstInsertTime}</span>
-              <span>Last Update Date : {draft.lastUpdateTime}</span>
-              <span>First Insert User : dy.kim@ohmyhotel.com</span>
-              <span>Last Update User : tuyen.tb@ohmyhotel.com</span>
+          {!boost && (
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
+              <h3 className="text-lg font-bold text-ink">
+                [{draft.code}] {draft.name.EN} {draft.name.KO && <span>({draft.name.KO})</span>}
+              </h3>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-caption text-muted">
+                <span>First Insert Date : {draft.firstInsertTime}</span>
+                <span>Last Update Date : {draft.lastUpdateTime}</span>
+                <span>First Insert User : dy.kim@ohmyhotel.com</span>
+                <span>Last Update User : tuyen.tb@ohmyhotel.com</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Tabs */}
-          <div className="mt-3 flex gap-6 border-b border-line">
+          <div className={`flex gap-6 border-b border-line ${boost ? '' : 'mt-3'}`}>
             {(['basic', 'description', 'photo'] as Tab[]).map((t) => (
               <button
                 key={t}
@@ -94,7 +106,22 @@ export function HotelMasterModal({ hotel, onClose }: { hotel: Hotel; onClose: ()
                 {t}
               </button>
             ))}
+            {/* New content-booster tab */}
+            <button
+              onClick={() => setTab('boost')}
+              className={`-mb-px ml-auto flex items-center gap-1.5 border-b-2 pb-2 pt-1 text-md font-semibold ${
+                boost ? 'border-primary text-primary' : 'border-transparent text-primary/80 hover:text-primary'
+              }`}
+            >
+              <Sparkles size={15} /> Boost your hotel · 판매력 높이기
+            </button>
           </div>
+
+          {tab === 'boost' && (
+            <div className="mt-4">
+              <BoostTab hotel={draft} rooms={rooms} setHotel={set} setRoom={setRoom} commit={commit} />
+            </div>
+          )}
 
           {tab === 'basic' && (
             <div className="mt-5 grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
