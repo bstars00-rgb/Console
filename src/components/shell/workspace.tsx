@@ -31,18 +31,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const active = menuByPath(location.pathname)
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
-    const stored = readJSON<string[]>(OPEN_KEY, [])
+    // Dedupe defensively — stored state from older sessions may contain repeats,
+    // and duplicate tab keys would break React's list rendering.
+    const stored = [...new Set(readJSON<string[]>(OPEN_KEY, []))].filter((k) => VENDOR_MENU.some((m) => m.key === k))
     return stored.length ? stored : active ? [active.key] : ['booking']
   })
 
   useEffect(() => writeJSON(OPEN_KEY, openKeys), [openKeys])
 
-  // Ensure the current route has an open tab.
+  // Ensure the current route has an open tab. Functional + idempotent so a
+  // double render (StrictMode) or rapid navigation can't append a duplicate key.
   useEffect(() => {
-    if (active && !openKeys.includes(active.key)) {
-      setOpenKeys((keys) => [...keys, active.key])
-    }
-  }, [active, openKeys])
+    if (!active) return
+    setOpenKeys((keys) => (keys.includes(active.key) ? keys : [...keys, active.key]))
+  }, [active])
 
   const openTab = useCallback(
     (key: string) => {

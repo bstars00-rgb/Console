@@ -99,6 +99,8 @@ export interface HotelImage {
   tags?: string[]
   width?: number
   height?: number
+  /** Confidence (0..1) of the prototype AI category suggestion, if analyzed. */
+  aiConfidence?: number
 }
 
 export interface RoomType {

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
-import { Upload, Star, Trash2, ArrowLeft, ArrowRight, AlertTriangle, Plus } from 'lucide-react'
+import { Upload, Star, Trash2, ArrowLeft, ArrowRight, AlertTriangle, Plus, Sparkles, Wand2 } from 'lucide-react'
 import type { HotelImage, PhotoCategory } from '../../../data/types'
 import { placeholderImage } from '../../../data/placeholder'
+import { analyzePhoto, clampCategory } from '../../../lib/aiPhotoAnalysis'
 
 const CATEGORY_LABELS: Record<PhotoCategory, string> = {
   exterior: '외관',
@@ -36,6 +37,8 @@ export function PhotoManager({
 }) {
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(0)
+  const [aiEnabled, setAiEnabled] = useState(true)
+  const [reanalyzing, setReanalyzing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const addFiles = (files: FileList | File[]) => {
@@ -48,6 +51,9 @@ export function PhotoManager({
         const url = reader.result as string
         const img = new Image()
         img.onload = () => {
+          // Prototype AI: analyze the pixels + filename and auto-match a category.
+          const ai = aiEnabled ? analyzePhoto(img, file.name) : null
+          const category = ai ? clampCategory(ai.category, categories) : 'other'
           onChange([
             ...currentRef.current,
             {
@@ -55,7 +61,9 @@ export function PhotoManager({
               url,
               caption: file.name,
               isRepresentative: currentRef.current.length === 0,
-              category: 'other',
+              category,
+              tags: ai?.tags,
+              aiConfidence: ai?.confidence,
               width: img.naturalWidth,
               height: img.naturalHeight,
             },
@@ -66,6 +74,46 @@ export function PhotoManager({
       }
       reader.readAsDataURL(file)
     })
+  }
+
+  /** Re-run AI matching on all raster (uploaded) photos. */
+  const reanalyzeAll = async () => {
+    setReanalyzing(true)
+    const raster = images.filter((im) => /^data:image\/(png|jpe?g|webp)/.test(im.url) || /^https?:/.test(im.url))
+    const results = await Promise.all(
+      raster.map(
+        (im) =>
+          new Promise<[string, PhotoCategory, number, string[]]>((resolve) => {
+            const img = new Image()
+            img.onload = () => {
+              const ai = analyzePhoto(img, im.caption)
+              resolve([im.id, clampCategory(ai.category, categories), ai.confidence, ai.tags])
+            }
+            img.onerror = () => resolve([im.id, im.category ?? 'other', im.aiConfidence ?? 0, im.tags ?? []])
+            img.src = im.url
+          }),
+      ),
+    )
+    const map = new Map(results.map((r) => [r[0], r]))
+    onChange(images.map((im) => (map.has(im.id) ? { ...im, category: map.get(im.id)![1], aiConfidence: map.get(im.id)![2], tags: map.get(im.id)![3] } : im)))
+    setReanalyzing(false)
+  }
+
+  /** AI suggestion for the best representative photo (landscape, high-res, hero category). */
+  const aiPickRepresentative = () => {
+    if (images.length === 0) return
+    const HERO: PhotoCategory[] = ['exterior', 'lobby', 'view', 'pool', 'room', 'bedroom']
+    const scored = images.map((im) => {
+      let s = 0
+      const cat = im.category ?? 'other'
+      s += Math.max(0, 6 - HERO.indexOf(cat)) * (HERO.includes(cat) ? 1 : 0)
+      if ((im.width ?? 0) >= 1024 && (im.height ?? 0) >= 768) s += 3
+      if ((im.width ?? 1) >= (im.height ?? 0)) s += 2 // landscape
+      s += im.aiConfidence ?? 0
+      return { id: im.id, s }
+    })
+    const best = scored.sort((a, b) => b.s - a.s)[0]
+    onChange(images.map((im) => ({ ...im, isRepresentative: im.id === best.id })))
   }
 
   // keep latest images for async file callbacks
@@ -108,6 +156,43 @@ export function PhotoManager({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* AI auto-match controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary-light/40 px-3 py-2">
+        <label className="flex items-center gap-1.5 text-md font-semibold text-ink">
+          <Sparkles size={15} className="text-primary" />
+          AI 자동 매칭
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiEnabled}
+            aria-label="AI 자동 매칭"
+            onClick={() => setAiEnabled((v) => !v)}
+            className={`ml-1 flex h-5 w-9 items-center rounded-full px-0.5 transition-colors ${aiEnabled ? 'bg-primary' : 'bg-line'}`}
+          >
+            <span className={`h-4 w-4 rounded-full bg-white transition-transform ${aiEnabled ? 'translate-x-4' : ''}`} />
+          </button>
+          <span className="text-caption font-normal text-muted">업로드 시 카테고리·태그를 자동으로 추천합니다 (프로토타입)</span>
+        </label>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={reanalyzeAll}
+            disabled={reanalyzing || images.length === 0}
+            className="inline-flex items-center gap-1 rounded border border-primary px-2 py-1 text-caption font-medium text-primary hover:bg-primary-light disabled:opacity-40"
+          >
+            <Wand2 size={13} /> {reanalyzing ? '분석 중…' : 'AI로 다시 분석'}
+          </button>
+          <button
+            type="button"
+            onClick={aiPickRepresentative}
+            disabled={images.length === 0}
+            className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-caption text-ink hover:bg-canvas disabled:opacity-40"
+          >
+            <Star size={13} /> 대표사진 AI 추천
+          </button>
+        </div>
+      </div>
+
       {/* Drop zone */}
       <div
         onDragOver={(e) => {
@@ -130,8 +215,14 @@ export function PhotoManager({
       >
         <Upload size={22} className="text-primary" />
         <p className="text-md font-medium text-ink">사진을 끌어다 놓거나 클릭하여 업로드</p>
-        <p className="text-caption text-muted">JPG · PNG · WebP · 권장 해상도 1024×768 이상 · 가로형 권장</p>
-        {uploading > 0 && <p className="text-caption text-primary">업로드 중… ({uploading})</p>}
+        <p className="text-caption text-muted">
+          JPG · PNG · WebP · 권장 해상도 1024×768 이상 · 가로형 권장{aiEnabled ? ' · 업로드 시 AI가 자동 분류' : ''}
+        </p>
+        {uploading > 0 && (
+          <p className="flex items-center gap-1 text-caption text-primary">
+            {aiEnabled && <Sparkles size={11} />} {aiEnabled ? 'AI 분석 중…' : '업로드 중…'} ({uploading})
+          </p>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -188,11 +279,16 @@ export function PhotoManager({
                       <AlertTriangle size={9} /> 확인
                     </span>
                   )}
+                  {typeof im.aiConfidence === 'number' && (
+                    <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-sm bg-primary/90 px-1 py-0.5 text-[9px] font-semibold text-white" title="AI 자동 분류 결과 — 필요하면 아래에서 변경하세요">
+                      <Sparkles size={8} /> AI {Math.round(im.aiConfidence * 100)}%
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1 p-1.5">
                   <select
                     value={im.category ?? 'other'}
-                    onChange={(e) => update(im.id, { category: e.target.value as PhotoCategory })}
+                    onChange={(e) => update(im.id, { category: e.target.value as PhotoCategory, aiConfidence: undefined })}
                     aria-label="사진 카테고리"
                     className="h-6 rounded border border-line px-1 text-[11px] text-ink outline-none focus:border-primary"
                   >

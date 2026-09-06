@@ -5,7 +5,7 @@ import { useWorkspace } from './workspace'
 /** MDI tab strip: one tab per open menu; active tab connects to the content. */
 export function TabWorkspace() {
   const { openKeys, activeKey, openTab, closeTab } = useWorkspace()
-  const tabs = openKeys
+  const tabs = [...new Set(openKeys)]
     .map((k) => VENDOR_MENU.find((m) => m.key === k))
     .filter((m): m is (typeof VENDOR_MENU)[number] => !!m)
 

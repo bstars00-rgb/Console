@@ -113,6 +113,21 @@ representative, reorder, category tag, resolution/portrait/duplicate warnings,
 missing-type guidance, facility→photo prompts, delete confirm, score recompute.
 Targets: hotel 20+; room 4+ incl. 침실·욕실.
 
+### AI 자동 매칭 (prototype)
+On upload each photo is analyzed **in the browser** and auto-matched to a
+category with a confidence, tags, and quality flags (`src/lib/aiPhotoAnalysis.ts`):
+- **Filename keywords** (e.g. `pool`, `bathroom`, `lobby`, `욕실`, `외관`) → high-confidence match.
+- **Pixel heuristics** (average colour, brightness, aspect ratio via a 24×24 canvas)
+  when the filename gives no hint — blue+bright → pool, very bright → lobby, warm+dark → restaurant, etc.
+- Suggestions are clamped to the categories valid for the scope (hotel vs room).
+- Each thumbnail shows an **✨ AI NN%** badge; the user can override the category
+  (which clears the AI flag). Controls: an **AI 자동 매칭** on/off switch,
+  **AI로 다시 분석** (re-run on all uploaded photos), and **대표사진 AI 추천**
+  (auto-pick the best hero photo by category + resolution + landscape).
+
+This is an honest prototype (no backend, no external model). In production the
+same interface would call a real vision API; behaviour and UI stay the same.
+
 ## Multilingual
 Base language first; per-language status; "자동 번역 초안" mock that stamps a
 **검토 필요** state; review flag surfaced in the UI.
