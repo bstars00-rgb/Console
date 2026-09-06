@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { MapPin, Sparkles, Languages, CheckCircle2 } from 'lucide-react'
+import { MapPin, Sparkles, Languages, CheckCircle2, Wand2, RefreshCw, Check, X, Plus } from 'lucide-react'
 import type { Hotel, RoomType, LangText } from '../../../data/types'
 import type { MissionKey } from '../../../lib/contentScore'
 import type { HighlightKey } from './highlight'
 import { PhotoManager } from './PhotoManager'
+import { enrichDescription, describeGaps, type Tone } from '../../../lib/descriptionEnrich'
+import { facilityIcon } from './facilityIcon'
 
 const FACILITY_OPTIONS = ['Free Wi-Fi', 'Swimming Pool', 'Indoor Pool', 'Fitness Center', 'Spa & Sauna', 'Restaurant', 'Bar', 'Rooftop Bar', 'Parking', 'Valet Parking', 'Airport Shuttle', 'Room Service', 'Business Center', 'Pet Friendly', 'Laundry', 'Concierge', '24h Front Desk', 'Onsen', 'Karaoke', 'Kids Play Area', 'Executive Lounge']
 const BED_OPTIONS = ['1 King Bed', '1 Queen Bed', '2 Twin Beds', '1 Double Bed', '2 Queen Beds', '1 King Bed + Sofa', 'Japanese Futon']
@@ -106,30 +108,90 @@ function TextInput({ value, onChange, onFocus, placeholder }: { value: string; o
   )
 }
 
-function ChipMulti({ options, value, onChange, onFocus }: { options: string[]; value: string[]; onChange: (v: string[]) => void; onFocus?: () => void }) {
+function ChipMulti({
+  options,
+  value,
+  onChange,
+  onFocus,
+  withIcon,
+  allowCustom,
+  customPlaceholder = '목록에 없는 항목을 직접 추가',
+}: {
+  options: string[]
+  value: string[]
+  onChange: (v: string[]) => void
+  onFocus?: () => void
+  withIcon?: boolean
+  allowCustom?: boolean
+  customPlaceholder?: string
+}) {
+  const [custom, setCustom] = useState('')
   const toggle = (o: string) => (value.includes(o) ? onChange(value.filter((x) => x !== o)) : onChange([...value, o]))
+  // Show presets plus any custom (selected) values not in the preset list.
+  const allChips = [...options, ...value.filter((v) => !options.includes(v))]
+  const addCustom = () => {
+    const v = custom.trim()
+    if (v && !value.includes(v)) {
+      onFocus?.()
+      onChange([...value, v])
+    }
+    setCustom('')
+  }
   return (
-    <div className="flex flex-wrap gap-1.5" onFocus={onFocus}>
-      {options.map((o) => {
-        const on = value.includes(o)
-        return (
-          <button
-            key={o}
-            type="button"
-            onClick={() => {
-              onFocus?.()
-              toggle(o)
+    <div className="flex flex-col gap-2" onFocus={onFocus}>
+      <div className="flex flex-wrap gap-1.5">
+        {allChips.map((o) => {
+          const on = value.includes(o)
+          const isCustom = !options.includes(o)
+          return (
+            <button
+              key={o}
+              type="button"
+              onClick={() => {
+                onFocus?.()
+                toggle(o)
+              }}
+              aria-pressed={on}
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-caption transition-colors ${
+                on ? 'border-primary bg-primary text-white' : 'border-line bg-white text-ink hover:border-primary'
+              }`}
+            >
+              {withIcon ? facilityIcon(o, 12, on ? 'text-white' : 'text-primary') : on ? <Check size={12} /> : null}
+              {o}
+              {isCustom && (
+                <X
+                  size={11}
+                  className={on ? 'text-white/80 hover:text-white' : 'text-faint hover:text-danger'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChange(value.filter((x) => x !== o))
+                  }}
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {allowCustom && (
+        <div className="flex max-w-md gap-1.5">
+          <input
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onFocus={onFocus}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addCustom()
+              }
             }}
-            aria-pressed={on}
-            className={`rounded-full border px-2.5 py-1 text-caption transition-colors ${
-              on ? 'border-primary bg-primary text-white' : 'border-line bg-white text-ink hover:border-primary'
-            }`}
-          >
-            {on && '✓ '}
-            {o}
+            placeholder={customPlaceholder}
+            className="h-8 flex-1 rounded-full border border-dashed border-line px-3 text-caption text-ink outline-none focus:border-primary"
+          />
+          <button type="button" onClick={addCustom} className="inline-flex h-8 items-center gap-1 rounded-full border border-primary px-3 text-caption font-medium text-primary hover:bg-primary-light">
+            <Plus size={12} /> 추가
           </button>
-        )
-      })}
+        </div>
+      )}
     </div>
   )
 }
@@ -181,20 +243,97 @@ function BasicInfo({ hotel, setHotel, setHighlight }: Props) {
   )
 }
 
-function Description({ hotel, setHotel, setHighlight }: Props) {
+function Description({ hotel, setHotel, rooms, setHighlight }: Props) {
+  const [tone, setTone] = useState<Tone>('rich')
+  const [draft, setDraft] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const gaps = describeGaps(hotel, rooms)
+
+  const setDesc = (v: string) => setHotel({ descriptions: { ...hotel.descriptions, EN: v }, description: v })
+  const generate = () => {
+    setLoading(true)
+    // Simulate AI latency, then compose from the hotel's own data.
+    window.setTimeout(() => {
+      setDraft(enrichDescription(hotel, rooms, tone))
+      setLoading(false)
+      setHighlight('description')
+    }, 550)
+  }
+
+  const TONES: { key: Tone; label: string }[] = [
+    { key: 'standard', label: '간결하게' },
+    { key: 'rich', label: '표준' },
+    { key: 'warm', label: '감성적으로' },
+  ]
+
   return (
     <div className="flex flex-col gap-4">
       <Q title="호텔을 소개해 주세요" sub="호텔의 매력을 설명하면 고객이 예약을 결정하는 데 도움이 됩니다." />
       <Field label="호텔 설명 (영문)" where="상세 '호텔 소개' 영역" example="위치, 분위기, 대표 시설, 주변 명소를 2~3문장으로 소개해 보세요.">
         <textarea
           value={hotel.descriptions.EN}
-          onChange={(e) => setHotel({ descriptions: { ...hotel.descriptions, EN: e.target.value }, description: e.target.value })}
+          onChange={(e) => setDesc(e.target.value)}
           onFocus={() => setHighlight('description')}
-          className="min-h-[140px] w-full rounded border border-line px-3 py-2 text-md leading-relaxed outline-none focus:border-primary"
+          className="min-h-[120px] w-full rounded border border-line px-3 py-2 text-md leading-relaxed outline-none focus:border-primary"
           placeholder="A flagship 5-star hotel in downtown Seoul overlooking Gyeongbokgung Palace…"
         />
         <p className="mt-1 text-caption text-muted">{hotel.descriptions.EN.trim().length}자 · 100자 이상 작성하면 상세 설명 점수를 받을 수 있습니다.</p>
       </Field>
+
+      {/* AI enrichment */}
+      <div className="rounded-md border border-primary/30 bg-primary-light/40 p-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-md font-semibold text-ink">
+            <Sparkles size={15} className="text-primary" /> AI로 설명 풍성화
+          </span>
+          <div className="flex gap-1">
+            {TONES.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTone(t.key)}
+                className={`rounded-full border px-2 py-0.5 text-caption ${tone === t.key ? 'border-primary bg-primary text-white' : 'border-line text-muted hover:border-primary'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="mb-2 text-caption text-muted">
+          입력한 성급·시설·객실·주변 정보를 바탕으로 AI가 초안을 작성합니다 (프로토타입). 생성 후 검토하고 사용하세요.
+        </p>
+        {gaps.length > 0 && (
+          <p className="mb-2 text-caption text-[#9a6a00]">
+            <b>{gaps.join(', ')}</b>을(를) 채우면 더 풍성한 설명을 만들 수 있습니다.
+          </p>
+        )}
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="inline-flex h-control items-center gap-1.5 rounded bg-primary px-3 text-md font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
+        >
+          {loading ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} {loading ? 'AI가 작성 중…' : draft ? '다시 생성' : 'AI 초안 생성'}
+        </button>
+
+        {draft && !loading && (
+          <div className="mt-3 rounded border border-line bg-white p-3">
+            <div className="mb-1 flex items-center gap-1.5 text-caption font-semibold text-primary">
+              <Sparkles size={12} /> AI 초안 <span className="rounded-sm bg-warning/15 px-1 text-[10px] font-normal text-[#9a6a00]">검토 필요</span>
+            </div>
+            <p className="whitespace-pre-line text-md leading-relaxed text-ink">{draft}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={() => { setDesc(draft); setDraft(null); setHighlight('description') }} className="inline-flex items-center gap-1 rounded bg-primary px-3 py-1 text-caption font-semibold text-white hover:bg-primary-hover">
+                <Check size={12} /> 적용 (교체)
+              </button>
+              <button onClick={() => { setDesc((hotel.descriptions.EN ? hotel.descriptions.EN.trim() + '\n\n' : '') + draft); setDraft(null); setHighlight('description') }} className="inline-flex items-center gap-1 rounded border border-line px-3 py-1 text-caption text-ink hover:bg-canvas">
+                기존 내용에 이어붙이기
+              </button>
+              <button onClick={() => setDraft(null)} className="rounded border border-line px-3 py-1 text-caption text-muted hover:bg-canvas">
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -270,8 +409,16 @@ function Facilities({ hotel, setHotel, setHighlight }: Props) {
     <div className="flex flex-col gap-4">
       <Q title="어떤 시설과 서비스를 제공하나요?" sub="시설 정보는 검색 필터 노출과 고객 기대치 관리에 도움이 됩니다." />
       <Field label="시설 및 서비스 선택" where="상세 '주요 시설' 영역">
-        <ChipMulti options={FACILITY_OPTIONS} value={hotel.facilities} onChange={(v) => setHotel({ facilities: v })} onFocus={() => setHighlight('facilities')} />
-        <p className="mt-1 text-caption text-muted">3개 이상 선택하면 기본 점수를, 8개 이상이면 추가 점수를 받을 수 있습니다.</p>
+        <ChipMulti
+          options={FACILITY_OPTIONS}
+          value={hotel.facilities}
+          onChange={(v) => setHotel({ facilities: v })}
+          onFocus={() => setHighlight('facilities')}
+          withIcon
+          allowCustom
+          customPlaceholder="목록에 없는 시설·서비스 직접 추가 (예: 루프탑 인피니티 풀)"
+        />
+        <p className="mt-1 text-caption text-muted">3개 이상 선택하면 기본 점수를, 8개 이상이면 추가 점수를 받을 수 있습니다. 목록에 없으면 직접 추가하세요.</p>
       </Field>
       {hotel.facilities.some((f) => /pool/i.test(f)) && !hotel.images.some((i) => i.category === 'pool') && (
         <div className="flex items-start gap-2 rounded-md border border-info/40 bg-info/10 px-3 py-2 text-caption text-info">
@@ -357,7 +504,15 @@ function RoomInfo({ rooms, setRoom, setHighlight }: Props) {
         <ChipSingle options={VIEW_OPTIONS} value={room.view ?? ''} onChange={(v) => setRoom(room.seq, { view: v })} onFocus={() => setHighlight('rooms')} />
       </Field>
       <Field label="객실 편의시설 (3개 이상 추천)">
-        <ChipMulti options={ROOM_AMENITIES} value={room.amenities} onChange={(v) => setRoom(room.seq, { amenities: v })} onFocus={() => setHighlight('rooms')} />
+        <ChipMulti
+          options={ROOM_AMENITIES}
+          value={room.amenities}
+          onChange={(v) => setRoom(room.seq, { amenities: v })}
+          onFocus={() => setHighlight('rooms')}
+          withIcon
+          allowCustom
+          customPlaceholder="목록에 없는 편의시설 직접 추가"
+        />
       </Field>
     </div>
   )
@@ -416,7 +571,14 @@ function Policies({ hotel, setHotel, setHighlight }: Props) {
         </Field>
       </div>
       <Field label="이용 정책 (2개 이상 추천)" where="상세 '이용 안내' 목록">
-        <ChipMulti options={POLICY_OPTIONS} value={hotel.policies} onChange={(v) => setHotel({ policies: v })} onFocus={() => setHighlight('policies')} />
+        <ChipMulti
+          options={POLICY_OPTIONS}
+          value={hotel.policies}
+          onChange={(v) => setHotel({ policies: v })}
+          onFocus={() => setHighlight('policies')}
+          allowCustom
+          customPlaceholder="목록에 없는 정책 직접 추가 (예: 오전 10시 이후 조식 미제공)"
+        />
       </Field>
     </div>
   )

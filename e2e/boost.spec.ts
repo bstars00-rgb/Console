@@ -56,8 +56,20 @@ test.describe('Boost your hotel', () => {
     }
     const after = await readScore(page)
     expect(after).toBeGreaterThan(before)
-    // Live preview reflects the new facility before saving (exact = the preview span, not the chip).
-    await expect(dialog.getByText('Swimming Pool', { exact: true })).toBeVisible()
+    // Live preview reflects the new facility before saving (scoped to the preview).
+    await expect(dialog.getByTestId('ohmytrip-preview').getByText('Swimming Pool')).toBeVisible()
+  })
+
+  test('facility chips show icons and support custom entries', async ({ page }) => {
+    const dialog = await openBoost(page, '2003011')
+    await dialog.getByRole('button', { name: '시설 및 서비스', exact: false }).first().click()
+    // Add a facility that is not in the preset list.
+    const input = dialog.getByPlaceholder(/직접 추가/).first()
+    await input.fill('루프탑 인피니티 풀')
+    await dialog.getByRole('button', { name: '추가' }).click()
+    // The custom facility becomes a chip and appears in the live preview.
+    await expect(dialog.getByRole('button', { name: /루프탑 인피니티 풀/ })).toBeVisible()
+    await expect(dialog.getByTestId('ohmytrip-preview').getByText('루프탑 인피니티 풀')).toBeVisible()
   })
 
   test('device preview toggle switches to mobile', async ({ page }) => {
@@ -77,6 +89,18 @@ test.describe('Boost your hotel', () => {
     await expect(page.getByText('Saved', { exact: false }).first()).toBeVisible({ timeout: 4000 })
     await page.reload()
     await page.getByRole('dialog', { name: 'Hotel Master' }).getByRole('button', { name: /Boost your hotel/ }).click()
+    const after = await readScore(page)
+    expect(after).toBeGreaterThan(before)
+  })
+
+  test('AI enriches the hotel description and raises the score', async ({ page }) => {
+    const dialog = await openBoost(page, '2004521') // Sakura — short description
+    const before = await readScore(page)
+    await dialog.getByRole('button', { name: '호텔 설명', exact: false }).first().click()
+    await dialog.getByRole('button', { name: 'AI 초안 생성' }).click()
+    const apply = dialog.getByRole('button', { name: /적용 \(교체\)/ })
+    await expect(apply).toBeVisible({ timeout: 3000 })
+    await apply.click()
     const after = await readScore(page)
     expect(after).toBeGreaterThan(before)
   })

@@ -128,6 +128,18 @@ category with a confidence, tags, and quality flags (`src/lib/aiPhotoAnalysis.ts
 This is an honest prototype (no backend, no external model). In production the
 same interface would call a real vision API; behaviour and UI stay the same.
 
+### AI 설명 풍성화 (prototype)
+In the Description mission, **AI로 설명 풍성화** composes a richer description
+from the hotel's own structured data — star, type, region, nearby places,
+facilities (grouped into wellness / dining / services), room types (names, size
+range, common amenities), and check-in/out (`src/lib/descriptionEnrich.ts`,
+pure & tested). Tones: 간결하게 / 표준 / 감성적으로. The generated draft is shown
+with a **검토 필요** flag; the user can **적용(교체)**, **이어붙이기**, or 닫기.
+Applying it raises the description score (20자/100자 items). It also lists which
+fields (시설·주변·객실 크기·성급) would make the draft richer. Honest prototype
+(no LLM); production would swap the composer for a real text-generation model
+behind the same `(hotel, rooms, tone) → text` interface.
+
 ## Multilingual
 Base language first; per-language status; "자동 번역 초안" mock that stamps a
 **검토 필요** state; review flag surfaced in the UI.

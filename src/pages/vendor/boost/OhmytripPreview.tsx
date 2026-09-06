@@ -1,6 +1,7 @@
-import { MapPin, Star, Wifi, Coffee, Waves, Dumbbell, Car, Utensils, Check } from 'lucide-react'
+import { MapPin, Star, Check } from 'lucide-react'
 import type { Hotel, RoomType } from '../../../data/types'
 import type { HighlightKey } from './highlight'
+import { facilityIcon } from './facilityIcon'
 
 /**
  * In-console reproduction of the OHMYTRIP customer hotel-detail page. Renders
@@ -26,6 +27,7 @@ export function OhmytripPreview({
   return (
     <div className="flex justify-center">
       <div
+        data-testid="ohmytrip-preview"
         className="overflow-hidden rounded-lg border border-line bg-white"
         style={{ width, maxWidth: '100%', fontFamily: 'Pretendard, sans-serif' }}
       >
@@ -81,7 +83,7 @@ export function OhmytripPreview({
                   <div className="flex flex-wrap gap-2">
                     {hotel.facilities.map((f) => (
                       <span key={f} className="flex items-center gap-1 rounded-md bg-canvas px-2 py-1 text-caption text-ink">
-                        <FacilityIcon name={f} /> {f}
+                        {facilityIcon(f, 12, 'text-primary')} {f}
                       </span>
                     ))}
                   </div>
@@ -211,14 +213,3 @@ function Region({ on, inline, children }: { on: boolean; inline?: boolean; child
   )
 }
 
-function FacilityIcon({ name }: { name: string }) {
-  const n = name.toLowerCase()
-  const cls = 'text-primary'
-  if (n.includes('wi-fi') || n.includes('wifi')) return <Wifi size={12} className={cls} />
-  if (n.includes('pool')) return <Waves size={12} className={cls} />
-  if (n.includes('fitness') || n.includes('gym')) return <Dumbbell size={12} className={cls} />
-  if (n.includes('parking') || n.includes('valet')) return <Car size={12} className={cls} />
-  if (n.includes('restaurant') || n.includes('dining')) return <Utensils size={12} className={cls} />
-  if (n.includes('breakfast') || n.includes('lounge') || n.includes('bar')) return <Coffee size={12} className={cls} />
-  return <Check size={12} className={cls} />
-}
