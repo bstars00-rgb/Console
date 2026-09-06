@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeContentScore, quickWins, topRecommendation, bandFor } from './contentScore'
+import { computeContentScore, quickWins, topRecommendation, bandFor, gradeFor } from './contentScore'
 import { HOTELS, ROOM_TYPES } from '../data/seed'
 import type { Hotel } from '../data/types'
 
@@ -81,5 +81,18 @@ describe('contentScore — mechanics', () => {
     expect(bandFor(70).tone).toBe('yellow')
     expect(bandFor(90).tone).toBe('blue')
     expect(bandFor(98).tone).toBe('green')
+  })
+
+  it('letter grades map correctly and appear in the result', () => {
+    expect(gradeFor(97).grade).toBe('S+')
+    expect(gradeFor(92).grade).toBe('S')
+    expect(gradeFor(88).grade).toBe('A+')
+    expect(gradeFor(82).grade).toBe('A')
+    expect(gradeFor(76).grade).toBe('A-')
+    expect(gradeFor(66).grade).toBe('B')
+    expect(gradeFor(48).grade).toBe('C')
+    expect(gradeFor(10).grade).toBe('F')
+    const r = computeContentScore(base(), roomsOf('1001097'))
+    expect(r.grade).toBe(gradeFor(r.total).grade) // 68 → B
   })
 })

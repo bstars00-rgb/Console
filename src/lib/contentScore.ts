@@ -79,6 +79,8 @@ export interface ScoreBand {
 export interface ScoreResult {
   total: number
   band: ScoreBand
+  grade: string
+  gradeColor: string
   categories: CategoryScore[]
   missions: MissionScore[]
   items: ScoreItem[]
@@ -96,6 +98,26 @@ export const SCORE_BANDS: ScoreBand[] = [
 
 export function bandFor(score: number): ScoreBand {
   return SCORE_BANDS.find((b) => score >= b.min && score <= b.max) ?? SCORE_BANDS[0]
+}
+
+/** Letter grade (S+ … F) for a score, with a colour aligned to the band scale. */
+const GRADE_TABLE: [number, string, string][] = [
+  [95, 'S+', '#2E7D32'],
+  [90, 'S', '#2E7D32'],
+  [85, 'A+', '#1976D2'],
+  [80, 'A', '#1976D2'],
+  [75, 'A-', '#1976D2'],
+  [70, 'B+', '#B48A00'],
+  [65, 'B', '#B48A00'],
+  [60, 'B-', '#B48A00'],
+  [55, 'C+', '#EF7F29'],
+  [45, 'C', '#EF7F29'],
+  [30, 'D', '#C0362C'],
+  [0, 'F', '#C0362C'],
+]
+export function gradeFor(score: number): { grade: string; color: string } {
+  const row = GRADE_TABLE.find(([min]) => score >= min) ?? GRADE_TABLE[GRADE_TABLE.length - 1]
+  return { grade: row[1], color: row[2] }
 }
 
 const CATEGORY_META: Record<CategoryKey, { label: string; labelKo: string }> = {
@@ -260,9 +282,12 @@ export function computeContentScore(hotel: Hotel, rooms: RoomType[]): ScoreResul
     }
   })
 
+  const g = gradeFor(total)
   return {
     total,
     band: bandFor(total),
+    grade: g.grade,
+    gradeColor: g.color,
     categories,
     missions,
     items,

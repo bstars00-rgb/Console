@@ -105,6 +105,24 @@ test.describe('Boost your hotel', () => {
     expect(after).toBeGreaterThan(before)
   })
 
+  test('shows a letter grade alongside the score', async ({ page }) => {
+    await openBoost(page, '2003011') // Ohmy Grand ~94 → grade S
+    await expect(page.getByLabel(/등급 /).first()).toBeVisible()
+  })
+
+  test('AI translates missing languages and marks them for review', async ({ page }) => {
+    const dialog = await openBoost(page, '1001097') // Hoa Binh — JA/VI/ZH descriptions missing
+    await dialog.getByRole('button', { name: '다국어 콘텐츠', exact: false }).first().click()
+    await dialog.getByRole('button', { name: 'AI로 나머지 언어 자동 번역' }).click()
+    const review = dialog.getByText('검토 필요')
+    await expect(review.first()).toBeVisible()
+    const n = await review.count()
+    expect(n).toBeGreaterThan(0)
+    // The hotel confirms one translation → one fewer needs review.
+    await dialog.getByRole('button', { name: /확인/ }).first().click()
+    await expect(dialog.getByText('검토 필요')).toHaveCount(n - 1)
+  })
+
   test('publish request updates the status', async ({ page }) => {
     const dialog = await openBoost(page, '2003011')
     await dialog.getByRole('button', { name: '게시 요청' }).click()
@@ -128,6 +146,6 @@ test.describe('Boost your hotel', () => {
     await page.getByRole('button', { name: 'Log in' }).click()
     await page.goto('/#/vendor/hotel-content')
     await page.getByRole('button', { name: 'Search' }).click()
-    await expect(page.getByText(/^Content \d+$/).first()).toBeVisible()
+    await expect(page.getByText(/Content \d+/).first()).toBeVisible()
   })
 })

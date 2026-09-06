@@ -11,14 +11,17 @@ import { computeContentScore } from '../../lib/contentScore'
 
 /** Content-score badge for internal staff to spot low-completeness hotels. */
 function ContentBadge({ hotel, rooms }: { hotel: Hotel; rooms: RoomType[] }) {
-  const { total, band } = computeContentScore(hotel, rooms.filter((r) => r.hotelCode === hotel.code))
+  const { total, band, grade, gradeColor } = computeContentScore(hotel, rooms.filter((r) => r.hotelCode === hotel.code))
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-caption font-semibold"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold"
       style={{ color: band.color, background: `${band.color}1a` }}
-      title={`콘텐츠 경쟁력 ${total}점 · ${band.labelKo}`}
+      title={`콘텐츠 경쟁력 ${total}점 · 등급 ${grade} · ${band.labelKo}`}
     >
       Content {total}
+      <span className="rounded px-1 text-[10px] font-extrabold text-white" style={{ background: gradeColor }}>
+        {grade}
+      </span>
     </span>
   )
 }

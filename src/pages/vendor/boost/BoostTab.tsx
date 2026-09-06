@@ -107,7 +107,7 @@ export function BoostTab({
       <div className="grid grid-cols-1 gap-4 rounded-lg border border-line bg-white p-4 lg:grid-cols-[auto_1fr_auto]">
         <div className="flex flex-col items-center">
           <span className="mb-1 text-caption font-semibold text-muted">콘텐츠 경쟁력 점수</span>
-          <ScoreGauge score={result.total} band={result.band} size={180} />
+          <ScoreGauge score={result.total} band={result.band} grade={result.grade} gradeColor={result.gradeColor} size={180} />
         </div>
 
         <div className="flex flex-col justify-center gap-3">

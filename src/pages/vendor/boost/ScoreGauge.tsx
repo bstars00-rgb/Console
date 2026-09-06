@@ -6,7 +6,19 @@ import type { ScoreBand } from '../../../lib/contentScore'
  * (not gamey): a single arc, the score, and the band label. Colour follows the
  * band but the label text is always shown too (accessibility — not colour-only).
  */
-export function ScoreGauge({ score, band, size = 200 }: { score: number; band: ScoreBand; size?: number }) {
+export function ScoreGauge({
+  score,
+  band,
+  grade,
+  gradeColor,
+  size = 200,
+}: {
+  score: number
+  band: ScoreBand
+  grade?: string
+  gradeColor?: string
+  size?: number
+}) {
   const display = useCountUp(score)
   const r = size / 2 - 14
   const cx = size / 2
@@ -15,7 +27,7 @@ export function ScoreGauge({ score, band, size = 200 }: { score: number; band: S
   const pct = Math.max(0, Math.min(100, score)) / 100
 
   return (
-    <div className="flex flex-col items-center" role="img" aria-label={`콘텐츠 경쟁력 점수 ${score}점, ${band.labelKo}`}>
+    <div className="flex flex-col items-center" role="img" aria-label={`콘텐츠 경쟁력 점수 ${score}점, 등급 ${grade ?? ''}, ${band.labelKo}`}>
       <svg width={size} height={size / 2 + 16} viewBox={`0 0 ${size} ${size / 2 + 16}`}>
         {/* track */}
         <path
@@ -43,11 +55,19 @@ export function ScoreGauge({ score, band, size = 200 }: { score: number; band: S
           / 100
         </text>
       </svg>
-      <div
-        className="mt-1 rounded-full px-3 py-1 text-md font-semibold"
-        style={{ color: band.color, background: `${band.color}14` }}
-      >
-        {band.labelKo}
+      <div className="-mt-1 flex items-center gap-2">
+        {grade && (
+          <span
+            className="rounded-md px-2 py-0.5 text-lg font-extrabold leading-none"
+            style={{ color: '#fff', background: gradeColor ?? band.color }}
+            aria-label={`등급 ${grade}`}
+          >
+            {grade}
+          </span>
+        )}
+        <span className="rounded-full px-2.5 py-1 text-md font-semibold" style={{ color: band.color, background: `${band.color}14` }}>
+          {band.labelKo}
+        </span>
       </div>
     </div>
   )
