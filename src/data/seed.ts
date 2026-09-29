@@ -353,6 +353,10 @@ export const FAQS: BoardPost[] = [
 // ---- Group RFP (단체 견적 요청) — 역경매 공급측 뷰 -----------------------------
 // 마켓플레이스 셀러가 넣은 단체 문의가 이 호텔(벤더) 콘솔에 RFP로 도착한 것.
 // 마켓플레이스 시드(GRP-20260921-001/002)와 동일 문의 — 콘솔은 호텔 견적 제출 측.
+// 회신 기한(quoteDeadline)은 고객사가 지정 — 시드는 최초 로드 시각 기준 상대값(언제 열어도 남은 시간이 보이도록).
+const RFP_NOW = Date.now()
+const inH = (h: number) => new Date(RFP_NOW + h * 3600000).toISOString()
+
 export const RFPS: GroupRfp[] = [
   {
     id: 'rfp-ibaraki-cn', ref: 'GRP-20260921-001', sellerName: 'ATTIC TOURS (KR)',
@@ -364,7 +368,7 @@ export const RFPS: GroupRfp[] = [
     scope: 'rooms', holdRequired: true,
     goldenKey: '경기장 차량 30분 이내 + 동일 호텔 10실 동시 확보',
     budgetPerRoomNight: 9100, budgetTotal: 637000, currency: 'JPY',
-    quoteDeadline: '2026-10-05', status: 'New',
+    quoteDeadline: inH(77), status: 'New', // 약 3일 5시간 남음
   },
   {
     id: 'rfp-osaka-corp', ref: 'GRP-20260921-002', sellerName: 'ATTIC TOURS (KR)',
@@ -375,7 +379,7 @@ export const RFPS: GroupRfp[] = [
     scope: 'rooms_plus', ancillary: ['세미나실', '부분 조식'], holdRequired: false,
     goldenKey: '세미나실 확보 + 난바/신사이바시 도보권',
     budgetPerRoomNight: 30000, budgetTotal: 720000, currency: 'JPY',
-    quoteDeadline: '2026-10-02', status: 'New',
+    quoteDeadline: inH(18), status: 'New', // 24시간 미만 — 긴급
   },
   {
     id: 'rfp-seoul-mice', ref: 'GRP-20260918-014', sellerName: 'BlueSky DMC (KR)',
@@ -386,7 +390,7 @@ export const RFPS: GroupRfp[] = [
     scope: 'rooms_plus', ancillary: ['연회장'], holdRequired: true,
     goldenKey: '연회장(20인) + 명동/시청 접근',
     budgetPerRoomNight: 130000, budgetTotal: 2860000, currency: 'KRW',
-    quoteDeadline: '2026-10-01', status: 'Won',
+    quoteDeadline: inH(-20), status: 'Won',
     quote: {
       amount: 2650000, currency: 'KRW', availability: 'Twin 8 + Double 3 전실 확보 가능',
       cancelPolicy: 'free-7d', cancellation: '체크인 7일 전까지 무료취소', freeCancelUntil: '2026-10-29',
@@ -400,12 +404,22 @@ export const RFPS: GroupRfp[] = [
     rooms: [{ roomType: 'Twin', count: 6 }], mealPlan: 'Half Board', guests: 12,
     nationality: '한국', groupType: '팸투어', scope: 'rooms', holdRequired: false,
     goldenKey: '미케 해변 도보권 + 오션뷰', budgetPerRoomNight: 55000, budgetTotal: 1320000, currency: 'VND',
-    quoteDeadline: '2026-09-28', status: 'Confirmed',
+    quoteDeadline: inH(-50), status: 'Confirmed',
     quote: {
       amount: 1230000, currency: 'VND', availability: 'Twin 6 오션뷰 확보',
       cancelPolicy: 'non-refundable', cancellation: '비환불(그룹 특가)', paymentDeadlineHours: 3,
       validUntil: '2026-09-28', note: '', submittedAt: '2026-09-16',
     },
+  },
+  {
+    // 회신 기한 경과 · 미회신 → '마감' (견적 제출 불가) 예시
+    id: 'rfp-osaka-workshop', ref: 'GRP-20260924-013', sellerName: 'Kintetsu Travel (KR)',
+    country: 'Japan', region: 'Osaka', contractType: 'Commission', area: '우메다', distanceKm: 4,
+    checkIn: '2026-11-12', checkOut: '2026-11-14', nights: 2,
+    rooms: [{ roomType: 'Twin', count: 4 }], mealPlan: 'Breakfast', guests: 8,
+    nationality: '한국', groupType: '기업 워크숍', scope: 'rooms', holdRequired: false,
+    goldenKey: '우메다역 도보 5분', budgetPerRoomNight: 16000, budgetTotal: 128000, currency: 'JPY',
+    quoteDeadline: inH(-6), status: 'New',
   },
 ]
 

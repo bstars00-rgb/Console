@@ -10,6 +10,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useRfps } from '../../data/hooks'
 import { submitVendorQuote, declineRfp, confirmRfpBooking, rejectRfpBooking } from '../../data/store'
 import { usePagedFilter } from '../../lib/usePagedFilter'
+import { remaining, fmtDateTime, useNow } from '../../lib/deadline'
 import type { GroupRfp, RfpStatus, Currency, VendorQuote, CancelPolicyId } from '../../data/types'
 
 /**
@@ -29,6 +30,13 @@ const STATUS_LABEL: Record<RfpStatus, string> = {
   New: '신규 요청', Quoted: '견적 제출', Won: '낙찰 · 컨펌 대기', Confirmed: '확정', Lost: '미선택', Declined: '거절', Cancelled: '취소', Expired: '마감',
 }
 const STATUS_OPTS = [{ value: '', label: 'All' }, ...(Object.keys(STATUS_LABEL) as RfpStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]
+
+/** 표시·필터용 유효 상태 — 신규 요청인데 회신 기한이 지났으면 '마감'(견적 제출 불가). */
+const effStatus = (r: GroupRfp, now: number): RfpStatus =>
+  r.status === 'New' && remaining(r.quoteDeadline, now).expired ? 'Expired' : r.status
+
+/** 인박스 정렬 우선순위 — 회신 가능한 신규(기한 임박순) → 컨펌 대기 → 견적 제출 → 종료 건. */
+const PRIORITY: Record<RfpStatus, number> = { New: 0, Won: 1, Quoted: 2, Expired: 3, Confirmed: 3, Lost: 3, Declined: 3, Cancelled: 3 }
 
 /** 취소 규정 프리셋 — 호텔이 견적 시 선택(선택권). */
 const CANCEL_POLICIES: { id: CancelPolicyId; label: string; days: number }[] = [
@@ -56,20 +64,33 @@ function settlement(r: GroupRfp, amount: number) {
 }
 
 export default function GroupRfpPage() {
-  const rows = useRfps()
+  const rfps = useRfps()
   const toast = useToast()
+  const now = useNow()
   const [status, setStatus] = useState('')
   const [region, setRegion] = useState('')
   const [applied, setApplied] = useState(0)
   const [active, setActive] = useState<GroupRfp | null>(null)
 
+  // 회신 가능한 신규 요청을 기한 임박순으로 맨 위에
+  const rows = useMemo(
+    () =>
+      [...rfps].sort((a, b) => {
+        const pa = PRIORITY[effStatus(a, now)]
+        const pb = PRIORITY[effStatus(b, now)]
+        if (pa !== pb) return pa - pb
+        return new Date(a.quoteDeadline).getTime() - new Date(b.quoteDeadline).getTime()
+      }),
+    [rfps, now],
+  )
+
   const regionOpts = useMemo(
-    () => [{ value: '', label: 'All' }, ...Array.from(new Set(rows.map((r) => r.region))).map((rg) => ({ value: rg, label: rg }))],
-    [rows],
+    () => [{ value: '', label: 'All' }, ...Array.from(new Set(rfps.map((r) => r.region))).map((rg) => ({ value: rg, label: rg }))],
+    [rfps],
   )
 
   const predicate = (r: GroupRfp) => {
-    if (status && r.status !== status) return false
+    if (status && effStatus(r, now) !== status) return false
     if (region && r.region !== region) return false
     return true
   }
@@ -94,8 +115,32 @@ export default function GroupRfpPage() {
     { key: 'rooms', header: '룸 / 인원', align: 'left', render: (r) => `${roomsTotal(r)}실 · ${r.guests}명` },
     { key: 'type', header: '성격', align: 'left', render: (r) => `${r.groupType ?? '단체'}${r.scope === 'rooms_plus' ? ' · 부대' : ''}` },
     { key: 'budget', header: '고객 예산(참고)', align: 'right', render: (r) => (r.budgetTotal ? money(r.budgetTotal, r.currency) : '—') },
-    { key: 'deadline', header: '견적 마감', render: (r) => r.quoteDeadline },
-    { key: 'status', header: '상태', align: 'center', render: (r) => <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge> },
+    {
+      key: 'deadline', header: '회신 기한 / 남은 시간', sortable: true, sortValue: (r) => new Date(r.quoteDeadline).getTime(),
+      render: (r) => {
+        const s = effStatus(r, now)
+        const rem = remaining(r.quoteDeadline, now)
+        return (
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-caption text-muted">{fmtDateTime(r.quoteDeadline)}</span>
+            {s === 'New' || s === 'Quoted' ? (
+              <Badge tone={rem.tone}>⏱ {rem.label}</Badge>
+            ) : s === 'Expired' ? (
+              <Badge tone="neutral">마감 · 미회신</Badge>
+            ) : (
+              <span className="text-caption text-faint">회신 종료</span>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: 'status', header: '상태', align: 'center',
+      render: (r) => {
+        const s = effStatus(r, now)
+        return <Badge tone={STATUS_TONE[s]}>{STATUS_LABEL[s]}</Badge>
+      },
+    },
   ]
 
   const doSearch = () => { setApplied((n) => n + 1); resetPage() }
@@ -110,21 +155,25 @@ export default function GroupRfpPage() {
       </FilterPanel>
 
       <p className="px-1 text-caption text-muted">
-        단체 견적 요청함 — <b>우리 호텔이 있는 도시</b>의 요청만 도착합니다(도시 불일치 시 미발송). 세부 지역이 다르면 <b>거리</b>를 표시하니 참고해 견적하세요. 행 클릭 → <b>경쟁 견적 제출</b>(blind).
+        단체 견적 요청함 — <b>우리 호텔이 있는 도시</b>의 요청만 도착합니다(도시 불일치 시 미발송). 세부 지역이 다르면 <b>거리</b>를 표시하니 참고해 견적하세요.
+        고객사가 정한 <b>회신 기한</b> 안에 제출해야 하며(<b>남은 시간</b> 표시 · 기한 임박순 정렬), 기한이 지나면 <b>마감</b>되어 제출할 수 없습니다. 행 클릭 → <b>경쟁 견적 제출</b>(blind).
       </p>
 
       <div>
-        <DataGrid kendo columns={columns} rows={pageRows} rowKey={(r) => r.id} onRowClick={(r) => setActive(r)} minWidth={1240} emptyMessage="요청이 없습니다." />
+        <DataGrid kendo columns={columns} rows={pageRows} rowKey={(r) => r.id} onRowClick={(r) => setActive(r)} minWidth={1320} emptyMessage="요청이 없습니다." />
         <Pager kendo page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} />
       </div>
 
-      {activeLive && <RfpDetail rfp={activeLive} onClose={() => setActive(null)} toast={toast} />}
+      {activeLive && <RfpDetail rfp={activeLive} now={now} onClose={() => setActive(null)} toast={toast} />}
     </div>
   )
 }
 
 // ─────────────────────────── 상세 + 견적/컨펌 ───────────────────────────
-function RfpDetail({ rfp, onClose, toast }: { rfp: GroupRfp; onClose: () => void; toast: ReturnType<typeof useToast> }) {
+/** 견적 유효기한 기본값 — 회신 기한 + 3일 (YYYY-MM-DD) */
+const defaultValidUntil = (deadlineIso: string) => new Date(new Date(deadlineIso).getTime() + 3 * 86400000).toISOString().slice(0, 10)
+
+function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; onClose: () => void; toast: ReturnType<typeof useToast> }) {
   const [amount, setAmount] = useState('')
   const [availability, setAvailability] = useState('')
   const [cancelPolicy, setCancelPolicy] = useState<CancelPolicyId>('free-3d')
@@ -134,10 +183,13 @@ function RfpDetail({ rfp, onClose, toast }: { rfp: GroupRfp; onClose: () => void
 
   useEffect(() => {
     setAmount(''); setAvailability(`${roomsText(rfp)} 확보 가능`); setCancelPolicy('free-3d')
-    setDeadlineHours('3'); setValidUntil(rfp.quoteDeadline); setNote('')
+    setDeadlineHours('3'); setValidUntil(defaultValidUntil(rfp.quoteDeadline)); setNote('')
   }, [rfp.id, rfp.quoteDeadline]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const quoting = rfp.status === 'New'
+  const rem = remaining(rfp.quoteDeadline, now)
+  const eff = effStatus(rfp, now)
+  // 회신 기한 내 신규 요청만 견적 제출 가능 — 기한 경과 시 마감
+  const quoting = eff === 'New'
   const awarded = rfp.status === 'Won'
   const amtNum = Number(amount) || 0
   const hrs = Math.max(1, Number(deadlineHours) || 3)
@@ -180,11 +232,23 @@ function RfpDetail({ rfp, onClose, toast }: { rfp: GroupRfp; onClose: () => void
       }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Badge tone={STATUS_TONE[rfp.status]}>{STATUS_LABEL[rfp.status]}</Badge>
-        <span className="text-caption text-muted">고객사 {rfp.sellerName} · 견적 마감 {rfp.quoteDeadline}</span>
+        <Badge tone={STATUS_TONE[eff]}>{STATUS_LABEL[eff]}</Badge>
+        <span className="text-caption text-muted">고객사 {rfp.sellerName} · 회신 기한 {fmtDateTime(rfp.quoteDeadline)}</span>
+        {(eff === 'New' || eff === 'Quoted') && <Badge tone={rem.tone}>⏱ {rem.label}</Badge>}
         {rfp.holdRequired && <Badge tone="info">객실 홀드 요청</Badge>}
         {rfp.distanceKm != null && <Badge tone="neutral">우리 호텔 약 {rfp.distanceKm}km</Badge>}
       </div>
+
+      {eff === 'Expired' && (
+        <div className="mb-3 rounded border border-danger/30 bg-danger/10 px-3 py-2 text-base text-danger">
+          ⏰ 고객사가 정한 <b>회신 기한({fmtDateTime(rfp.quoteDeadline)})</b>이 지나 <b>마감</b>되었습니다 — 견적을 제출할 수 없습니다.
+        </div>
+      )}
+      {eff === 'New' && rem.tone === 'danger' && (
+        <div className="mb-3 rounded border border-warning/40 bg-warning/15 px-3 py-2 text-base text-[#9a6a00]">
+          ⚠ 회신 기한 임박 — <b>{rem.label}</b>. 기한 내 제출하지 않으면 자동 마감됩니다.
+        </div>
+      )}
 
       {/* 요청 요건 */}
       <div className="grid grid-cols-2 gap-3 rounded border border-line bg-canvas/40 p-3 md:grid-cols-3">

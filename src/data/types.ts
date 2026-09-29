@@ -303,6 +303,7 @@ export interface GroupRfp {
   budgetPerRoomNight?: number
   budgetTotal?: number
   currency: Currency
+  /** 회신 기한(ISO) — 고객사가 문의 시 지정. 호텔은 이 시각까지만 견적 제출. 경과 시 마감(Expired 취급) */
   quoteDeadline: string
   status: RfpStatus
   quote?: VendorQuote
