@@ -10,9 +10,12 @@ export interface MenuEntry {
   tabLabel: string
   /** Route path (under HashRouter). */
   path: string
+  /** Small badge next to the label — marks a new/enhancement menu (원본에 없던 화면). */
+  badge?: string
 }
 
 export const VENDOR_MENU: MenuEntry[] = [
+  { key: 'group-rfp', label: 'Group RFP', tabLabel: 'Group RFP', path: '/vendor/group-rfp', badge: 'NEW' },
   { key: 'room-types', label: 'Room Type', tabLabel: 'Room Types', path: '/vendor/room-types' },
   { key: 'rate-plans', label: 'Rate plan', tabLabel: 'Rate Plans', path: '/vendor/rate-plans' },
   { key: 'rate-allotment', label: 'Rate & Allotment', tabLabel: 'Rate & Allotment', path: '/vendor/rate-allotment' },

@@ -45,11 +45,16 @@ export function Sidebar() {
                 <button
                   type="button"
                   onClick={() => openTab(m.key)}
-                  className={`w-full py-[5px] pl-3 pr-1 text-left text-base transition-colors hover:text-primary ${
+                  className={`flex w-full items-center gap-1.5 py-[5px] pl-3 pr-1 text-left text-base transition-colors hover:text-primary ${
                     isActive ? 'font-medium text-primary' : 'text-muted'
                   }`}
                 >
                   {m.label}
+                  {m.badge && (
+                    <span className="rounded-sm bg-primary px-1 py-px text-[9px] font-bold uppercase leading-none text-white">
+                      {m.badge}
+                    </span>
+                  )}
                 </button>
               </li>
             )

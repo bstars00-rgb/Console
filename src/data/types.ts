@@ -240,3 +240,58 @@ export interface AllotmentRow {
   currency: Currency
   days: AllotmentDay[]
 }
+
+// ---- Group RFP (단체 견적 요청) — 역경매 공급측 -------------------------------
+// 셀러(고객사)가 마켓플레이스에 넣은 단체 문의가 호텔(벤더) 콘솔에 RFP로 도착한다.
+// 호텔은 여기서 경쟁 견적을 제출(blind)하거나 거절한다. 낙찰 시 리퀘스트 예약으로 확정.
+// (마켓플레이스 GroupInquiry와 동일 개념 — 콘솔은 공급측 뷰)
+export type RfpStatus = 'New' | 'Quoted' | 'Won' | 'Lost' | 'Declined' | 'Expired'
+
+export interface RfpRoomReq {
+  roomType: string
+  count: number
+}
+
+export interface VendorQuote {
+  /** 견적 금액 — 계약형태(Net국가=net / Commission국가=단가)에 따름 */
+  amount: number
+  currency: Currency
+  /** 가용 확보 여부/메모 (예: "Twin 5 + Single 5 전실 확보") */
+  availability: string
+  cancellation: string
+  freeCancelUntil?: string
+  validUntil: string
+  note?: string
+  submittedAt: string
+}
+
+export interface GroupRfp {
+  id: string
+  ref: string
+  sellerName: string
+  country: string
+  region: string
+  /** 계약 형태 — 이 요금을 net으로 낼지 단가+커미션으로 낼지 안내 */
+  contractType: ContractType
+  anchorName?: string
+  anchorRadiusMin?: number
+  checkIn: string
+  checkOut: string
+  nights: number
+  rooms: RfpRoomReq[]
+  mealPlan: MealType
+  guests: number
+  nationality?: string
+  groupType?: string
+  scope: 'rooms' | 'rooms_plus'
+  ancillary?: string[]
+  holdRequired?: boolean
+  goldenKey?: string
+  /** 고객 예산(참고) — 경쟁 견적 제출 가이드용 */
+  budgetPerRoomNight?: number
+  budgetTotal?: number
+  currency: Currency
+  quoteDeadline: string
+  status: RfpStatus
+  quote?: VendorQuote
+}

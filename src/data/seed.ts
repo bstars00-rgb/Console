@@ -22,6 +22,7 @@ import type {
   HotelImage,
   PhotoCategory,
   NearbyPlace,
+  GroupRfp,
 } from './types'
 
 function lt(en: string, ko: string, ja: string, vi: string, zh: string): LangText {
@@ -347,6 +348,64 @@ export const FAQS: BoardPost[] = [
   { seq: 200298, type: 'Content', title: 'How do I set a representative hotel image?', body: 'In Hotel Content, open the hotel, go to Images, and mark an image as representative. Drag to reorder.', date: '2026-07-22', views: 902, hasAttachment: true },
   { seq: 200277, type: 'Rate', title: 'How do I bulk-update allotment?', body: 'Use Rate & Allotment, select a date range on the calendar, and apply a bulk update.', date: '2026-06-30', views: 1533, hasAttachment: false },
   { seq: 200250, type: 'Booking', title: 'What do the booking statuses mean?', body: 'Confirmed, Pending, Cancelled, and No-show describe the lifecycle of a reservation.', date: '2026-05-14', views: 2011, hasAttachment: false },
+]
+
+// ---- Group RFP (단체 견적 요청) — 역경매 공급측 뷰 -----------------------------
+// 마켓플레이스 셀러가 넣은 단체 문의가 이 호텔(벤더) 콘솔에 RFP로 도착한 것.
+// 마켓플레이스 시드(GRP-20260921-001/002)와 동일 문의 — 콘솔은 호텔 견적 제출 측.
+export const RFPS: GroupRfp[] = [
+  {
+    id: 'rfp-ibaraki-cn', ref: 'GRP-20260921-001', sellerName: 'ATTIC TOURS (KR)',
+    country: 'Japan', region: 'Ibaraki', contractType: 'Commission',
+    anchorName: 'Sakaimachi Urban Sports Park', anchorRadiusMin: 30,
+    checkIn: '2026-11-23', checkOut: '2026-11-30', nights: 7,
+    rooms: [{ roomType: 'Twin', count: 5 }, { roomType: 'Single', count: 5 }],
+    mealPlan: 'Room Only', guests: 15, nationality: '중국', groupType: '스포츠 대표팀',
+    scope: 'rooms', holdRequired: true,
+    goldenKey: '경기장 차량 30분 이내 + 동일 호텔 10실 동시 확보',
+    budgetPerRoomNight: 9100, budgetTotal: 637000, currency: 'JPY',
+    quoteDeadline: '2026-10-05', status: 'New',
+  },
+  {
+    id: 'rfp-osaka-corp', ref: 'GRP-20260921-002', sellerName: 'ATTIC TOURS (KR)',
+    country: 'Japan', region: 'Osaka', contractType: 'Commission',
+    checkIn: '2026-10-18', checkOut: '2026-10-21', nights: 3,
+    rooms: [{ roomType: 'Double', count: 4 }, { roomType: 'Twin', count: 4 }],
+    mealPlan: 'Breakfast', guests: 12, nationality: '한국', groupType: '기업 연수단(인센티브)',
+    scope: 'rooms_plus', ancillary: ['세미나실', '부분 조식'], holdRequired: false,
+    goldenKey: '세미나실 확보 + 난바/신사이바시 도보권',
+    budgetPerRoomNight: 30000, budgetTotal: 720000, currency: 'JPY',
+    quoteDeadline: '2026-10-02', status: 'New',
+  },
+  {
+    id: 'rfp-seoul-mice', ref: 'GRP-20260918-014', sellerName: 'BlueSky DMC (KR)',
+    country: 'South Korea', region: '서울', contractType: 'Net',
+    checkIn: '2026-11-05', checkOut: '2026-11-07', nights: 2,
+    rooms: [{ roomType: 'Twin', count: 8 }, { roomType: 'Double', count: 3 }],
+    mealPlan: 'Breakfast', guests: 20, nationality: '일본', groupType: 'MICE·포상관광',
+    scope: 'rooms_plus', ancillary: ['연회장'], holdRequired: true,
+    goldenKey: '연회장(20인) + 명동/시청 접근',
+    budgetPerRoomNight: 130000, budgetTotal: 2860000, currency: 'KRW',
+    quoteDeadline: '2026-10-01', status: 'Quoted',
+    quote: {
+      amount: 2650000, currency: 'KRW', availability: 'Twin 8 + Double 3 전실 확보 가능',
+      cancellation: '체크인 7일 전까지 무료취소', freeCancelUntil: '2026-10-29',
+      validUntil: '2026-10-01', note: '연회장 별도 견적 포함(조식 20인).', submittedAt: '2026-09-22',
+    },
+  },
+  {
+    id: 'rfp-danang-fam', ref: 'GRP-20260915-009', sellerName: 'Hana Tour (KR)',
+    country: 'Vietnam', region: '다낭', contractType: 'Net',
+    checkIn: '2026-10-25', checkOut: '2026-10-29', nights: 4,
+    rooms: [{ roomType: 'Twin', count: 6 }], mealPlan: 'Half Board', guests: 12,
+    nationality: '한국', groupType: '팸투어', scope: 'rooms', holdRequired: false,
+    goldenKey: '미케 해변 도보권 + 오션뷰', budgetPerRoomNight: 55000, budgetTotal: 1320000, currency: 'VND',
+    quoteDeadline: '2026-09-28', status: 'Won',
+    quote: {
+      amount: 1230000, currency: 'VND', availability: 'Twin 6 오션뷰 확보',
+      cancellation: '비환불(그룹 특가)', validUntil: '2026-09-28', note: '', submittedAt: '2026-09-16',
+    },
+  },
 ]
 
 // ---- Allotment calendar rows -------------------------------------------

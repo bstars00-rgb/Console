@@ -1,5 +1,11 @@
 # TASKS — Ohmyhotel Vendor Console Clone
 
+## 고도화(신규 화면 — 원본에 없던 것)
+- [x] **Group RFP (단체 견적 요청)** — 역경매 공급측. 마켓플레이스 셀러 단체 문의가 호텔 콘솔에
+      RFP로 도착 → 호텔이 경쟁 견적 제출(blind)/거절 → 낙찰 시 리퀘스트 예약. 상태 New/Quoted/
+      Won/Lost/Declined/Expired. 국가 계약형태(Net/Commission)별 금액 안내, 고객 예산 대비 표시.
+      메뉴 'Group RFP' [NEW]. (마켓플레이스 GRP-20260921-001/002와 동일 문의 연계)
+
 ## Pipeline
 - [x] Original site audit (login + full authenticated shell + 10 screens)
 - [x] Route inventory

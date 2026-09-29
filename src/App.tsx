@@ -16,6 +16,7 @@ const DashboardPage = lazy(() => import('./pages/vendor/DashboardPage'))
 const FaqPage = lazy(() => import('./pages/vendor/FaqPage'))
 const NoticePage = lazy(() => import('./pages/vendor/NoticePage'))
 const HotelContentPage = lazy(() => import('./pages/vendor/HotelContentPage'))
+const GroupRfpPage = lazy(() => import('./pages/vendor/GroupRfpPage'))
 
 /**
  * HashRouter so GitHub Pages serves the SPA without server rewrites — refreshing
@@ -54,6 +55,7 @@ export default function App() {
 function VendorRoutes() {
   return (
     <Routes>
+      <Route path="group-rfp" element={<GroupRfpPage />} />
       <Route path="room-types" element={<RoomTypesPage />} />
       <Route path="rate-plans" element={<RatePlansPage />} />
       <Route path="rate-allotment" element={<RateAllotmentPage />} />

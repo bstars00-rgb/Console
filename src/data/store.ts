@@ -4,10 +4,10 @@
  * Components subscribe via the hooks in ./hooks.ts (useSyncExternalStore).
  */
 import { readJSON, writeJSON, clearNamespace } from '../lib/storage'
-import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS } from './seed'
-import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage } from './types'
+import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS, RFPS } from './seed'
+import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage, GroupRfp, VendorQuote } from './types'
 
-const VERSION = 5
+const VERSION = 6
 
 interface DB {
   version: number
@@ -19,6 +19,7 @@ interface DB {
   notices: BoardPost[]
   faqs: BoardPost[]
   promotions: Promotion[]
+  rfps: GroupRfp[]
 }
 
 function seedDB(): DB {
@@ -32,6 +33,7 @@ function seedDB(): DB {
     notices: NOTICES,
     faqs: FAQS,
     promotions: PROMOTIONS,
+    rfps: RFPS,
   }
 }
 
@@ -69,8 +71,21 @@ export const getBillings = () => db.billings
 export const getNotices = () => db.notices
 export const getFaqs = () => db.faqs
 export const getPromotions = () => db.promotions
+export const getRfps = () => db.rfps
 
 // ---- Mutations ----------------------------------------------------------
+/** 호텔이 RFP에 경쟁 견적을 제출 → 상태 Quoted. */
+export function submitVendorQuote(id: string, quote: VendorQuote) {
+  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Quoted', quote } : r)) }
+  commit()
+}
+
+/** 호텔이 RFP를 거절 → 상태 Declined. */
+export function declineRfp(id: string) {
+  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Declined', quote: undefined } : r)) }
+  commit()
+}
+
 export function updateBookingStatus(id: string, status: BookingStatus) {
   db = {
     ...db,
