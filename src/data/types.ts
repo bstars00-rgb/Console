@@ -245,12 +245,16 @@ export interface AllotmentRow {
 // 셀러(고객사)가 마켓플레이스에 넣은 단체 문의가 호텔(벤더) 콘솔에 RFP로 도착한다.
 // 호텔은 여기서 경쟁 견적을 제출(blind)하거나 거절한다. 낙찰 시 리퀘스트 예약으로 확정.
 // (마켓플레이스 GroupInquiry와 동일 개념 — 콘솔은 공급측 뷰)
-export type RfpStatus = 'New' | 'Quoted' | 'Won' | 'Lost' | 'Declined' | 'Expired'
+// New→Quoted→(셀러 선택)Won→(호텔 컨펌)Confirmed / (거절·자동취소)Cancelled
+export type RfpStatus = 'New' | 'Quoted' | 'Won' | 'Confirmed' | 'Lost' | 'Declined' | 'Cancelled' | 'Expired'
 
 export interface RfpRoomReq {
   roomType: string
   count: number
 }
+
+/** 취소 규정 프리셋 — 호텔이 견적 시 선택(선택권). */
+export type CancelPolicyId = 'non-refundable' | 'free-3d' | 'free-7d' | 'free-14d'
 
 export interface VendorQuote {
   /** 견적 금액 — 계약형태(Net국가=net / Commission국가=단가)에 따름 */
@@ -258,8 +262,12 @@ export interface VendorQuote {
   currency: Currency
   /** 가용 확보 여부/메모 (예: "Twin 5 + Single 5 전실 확보") */
   availability: string
+  /** 취소 규정 — 호텔이 프리셋에서 선택 */
+  cancelPolicy: CancelPolicyId
   cancellation: string
   freeCancelUntil?: string
+  /** 컨펌 후 결제 마감(시간) — 호텔이 설정. 미결제 시 자동취소. 기본 3h */
+  paymentDeadlineHours: number
   validUntil: string
   note?: string
   submittedAt: string
@@ -271,6 +279,10 @@ export interface GroupRfp {
   sellerName: string
   country: string
   region: string
+  /** 세부 지역(구·동 등, 예: '강서구'). 없으면 도시 단위 */
+  area?: string
+  /** 요청 지역/앵커 ↔ 우리 호텔 거리(km) — 지역 타깃팅 B(거리 표시)용 */
+  distanceKm?: number
   /** 계약 형태 — 이 요금을 net으로 낼지 단가+커미션으로 낼지 안내 */
   contractType: ContractType
   anchorName?: string

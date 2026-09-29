@@ -7,7 +7,7 @@ import { readJSON, writeJSON, clearNamespace } from '../lib/storage'
 import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS, RFPS } from './seed'
 import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage, GroupRfp, VendorQuote } from './types'
 
-const VERSION = 6
+const VERSION = 7
 
 interface DB {
   version: number
@@ -80,9 +80,21 @@ export function submitVendorQuote(id: string, quote: VendorQuote) {
   commit()
 }
 
-/** 호텔이 RFP를 거절 → 상태 Declined. */
+/** 호텔이 RFP를 거절(견적 단계) → 상태 Declined. */
 export function declineRfp(id: string) {
   db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Declined', quote: undefined } : r)) }
+  commit()
+}
+
+/** 낙찰 건 호텔 컨펌 → 예약 확정(Confirmed). 리퀘스트 예약 → 확정. */
+export function confirmRfpBooking(id: string) {
+  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Confirmed' } : r)) }
+  commit()
+}
+
+/** 낙찰 건 호텔 거절 → 문의 취소(Cancelled). */
+export function rejectRfpBooking(id: string) {
+  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Cancelled' } : r)) }
   commit()
 }
 

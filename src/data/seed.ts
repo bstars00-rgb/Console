@@ -356,7 +356,7 @@ export const FAQS: BoardPost[] = [
 export const RFPS: GroupRfp[] = [
   {
     id: 'rfp-ibaraki-cn', ref: 'GRP-20260921-001', sellerName: 'ATTIC TOURS (KR)',
-    country: 'Japan', region: 'Ibaraki', contractType: 'Commission',
+    country: 'Japan', region: 'Ibaraki', contractType: 'Commission', distanceKm: 8,
     anchorName: 'Sakaimachi Urban Sports Park', anchorRadiusMin: 30,
     checkIn: '2026-11-23', checkOut: '2026-11-30', nights: 7,
     rooms: [{ roomType: 'Twin', count: 5 }, { roomType: 'Single', count: 5 }],
@@ -368,7 +368,7 @@ export const RFPS: GroupRfp[] = [
   },
   {
     id: 'rfp-osaka-corp', ref: 'GRP-20260921-002', sellerName: 'ATTIC TOURS (KR)',
-    country: 'Japan', region: 'Osaka', contractType: 'Commission',
+    country: 'Japan', region: 'Osaka', contractType: 'Commission', area: '난바', distanceKm: 2,
     checkIn: '2026-10-18', checkOut: '2026-10-21', nights: 3,
     rooms: [{ roomType: 'Double', count: 4 }, { roomType: 'Twin', count: 4 }],
     mealPlan: 'Breakfast', guests: 12, nationality: '한국', groupType: '기업 연수단(인센티브)',
@@ -379,7 +379,7 @@ export const RFPS: GroupRfp[] = [
   },
   {
     id: 'rfp-seoul-mice', ref: 'GRP-20260918-014', sellerName: 'BlueSky DMC (KR)',
-    country: 'South Korea', region: '서울', contractType: 'Net',
+    country: 'South Korea', region: '서울', contractType: 'Net', area: '강서구', distanceKm: 12,
     checkIn: '2026-11-05', checkOut: '2026-11-07', nights: 2,
     rooms: [{ roomType: 'Twin', count: 8 }, { roomType: 'Double', count: 3 }],
     mealPlan: 'Breakfast', guests: 20, nationality: '일본', groupType: 'MICE·포상관광',
@@ -389,13 +389,13 @@ export const RFPS: GroupRfp[] = [
     quoteDeadline: '2026-10-01', status: 'Quoted',
     quote: {
       amount: 2650000, currency: 'KRW', availability: 'Twin 8 + Double 3 전실 확보 가능',
-      cancellation: '체크인 7일 전까지 무료취소', freeCancelUntil: '2026-10-29',
-      validUntil: '2026-10-01', note: '연회장 별도 견적 포함(조식 20인).', submittedAt: '2026-09-22',
+      cancelPolicy: 'free-7d', cancellation: '체크인 7일 전까지 무료취소', freeCancelUntil: '2026-10-29',
+      paymentDeadlineHours: 6, validUntil: '2026-10-01', note: '연회장 별도 견적 포함(조식 20인).', submittedAt: '2026-09-22',
     },
   },
   {
     id: 'rfp-danang-fam', ref: 'GRP-20260915-009', sellerName: 'Hana Tour (KR)',
-    country: 'Vietnam', region: '다낭', contractType: 'Net',
+    country: 'Vietnam', region: '다낭', contractType: 'Net', area: '미케', distanceKm: 1,
     checkIn: '2026-10-25', checkOut: '2026-10-29', nights: 4,
     rooms: [{ roomType: 'Twin', count: 6 }], mealPlan: 'Half Board', guests: 12,
     nationality: '한국', groupType: '팸투어', scope: 'rooms', holdRequired: false,
@@ -403,7 +403,8 @@ export const RFPS: GroupRfp[] = [
     quoteDeadline: '2026-09-28', status: 'Won',
     quote: {
       amount: 1230000, currency: 'VND', availability: 'Twin 6 오션뷰 확보',
-      cancellation: '비환불(그룹 특가)', validUntil: '2026-09-28', note: '', submittedAt: '2026-09-16',
+      cancelPolicy: 'non-refundable', cancellation: '비환불(그룹 특가)', paymentDeadlineHours: 3,
+      validUntil: '2026-09-28', note: '', submittedAt: '2026-09-16',
     },
   },
 ]
