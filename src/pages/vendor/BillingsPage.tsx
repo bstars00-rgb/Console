@@ -4,8 +4,8 @@ import { FilterPanel, Field } from '../../components/ui/FilterPanel'
 import { Select, TextInput, DateInput, Button } from '../../components/ui/controls'
 import { DataGrid, type Column } from '../../components/ui/DataGrid'
 import { Pager } from '../../components/ui/Pager'
-import { useBillings, useBookings } from '../../data/hooks'
-import type { Billing, Booking } from '../../data/types'
+import { useBillings, useBookings, useRfps } from '../../data/hooks'
+import type { Billing, Booking, GroupRfp } from '../../data/types'
 import { usePagedFilter } from '../../lib/usePagedFilter'
 import { useSelection } from '../../lib/useSelection'
 import { exportCsv, money } from '../../lib/csv'
@@ -15,9 +15,33 @@ const PAY = ['', 'Paid', 'Unpaid', 'Partial', 'Refunded'].map((v) => ({ value: v
 const CUR = ['', 'USD', 'KRW', 'JPY', 'VND', 'CNY'].map((v) => ({ value: v, label: v || 'Select' }))
 const BAL = [{ value: '', label: 'All' }, { value: 'nonzero', label: 'Balance ≠ 0' }, { value: 'zero', label: 'Balance = 0' }]
 
+/** 확정된 단체 RFP → 정산 라인(호텔 수령액). net국=net / 커미션국=단가−커미션(표준 10%). */
+function groupToBilling(r: GroupRfp): Billing {
+  const amt = r.quote?.amount ?? 0
+  const hotelReceive = r.contractType === 'Commission' ? Math.round(amt * 0.9) : amt
+  return {
+    billingNo: r.ref, // GRP-… (starts with GRP- → Group 배지)
+    hotelName: `단체 · ${r.region}${r.area ? ` ${r.area}` : ''}${r.groupType ? ` (${r.groupType})` : ''}`,
+    issuedDate: r.checkOut,
+    paymentStatus: 'Unpaid',
+    paidDate: null,
+    currency: r.currency,
+    sumAmount: hotelReceive,
+    paidAmount: 0,
+    balance: hotelReceive,
+    bookingItemCodes: [r.ref],
+  }
+}
+
 export default function BillingsPage() {
-  const billings = useBillings()
+  const seedBillings = useBillings()
   const bookings = useBookings()
+  const rfps = useRfps()
+  // 확정 단체 예약을 정산 라인으로 편입(MOR 15일 주기) — 목록 상단에 노출
+  const billings = useMemo(
+    () => [...rfps.filter((r) => r.status === 'Confirmed' && r.quote).map(groupToBilling), ...seedBillings],
+    [rfps, seedBillings],
+  )
   const toast = useToast()
   const sel = useSelection()
   const [status, setStatus] = useState('')
@@ -45,7 +69,15 @@ export default function BillingsPage() {
   const gridTotal = searched ? total : 0
 
   const billingCols: Column<Billing>[] = [
-    { key: 'no', header: 'Billing No.', align: 'left', render: (r) => r.billingNo, sortable: true, sortValue: (r) => r.billingNo },
+    {
+      key: 'no', header: 'Billing No.', align: 'left', sortable: true, sortValue: (r) => r.billingNo,
+      render: (r) => (
+        <span>
+          {r.billingNo}
+          {r.billingNo.startsWith('GRP-') && <span className="ml-1 rounded-sm bg-primary px-1 py-px text-[9px] font-bold uppercase text-white">Group</span>}
+        </span>
+      ),
+    },
     { key: 'hotel', header: 'Hotel Name', align: 'left', render: (r) => r.hotelName },
     { key: 'issued', header: 'Issued Date', render: (r) => r.issuedDate, sortable: true, sortValue: (r) => r.issuedDate },
     { key: 'pay', header: 'Payment Status', render: (r) => r.paymentStatus },
@@ -93,6 +125,10 @@ export default function BillingsPage() {
         <Field label="Currency"><Select value={currency} onChange={setCurrency} options={CUR} placeholder="Select" /></Field>
         <Field label="Balance"><Select value={balance} onChange={setBalance} options={BAL} /></Field>
       </FilterPanel>
+
+      <p className="px-1 text-caption text-muted">
+        확정된 <b>단체(Group)</b> 예약은 정산 라인으로 편입됩니다 — 호텔 수령액(net국=net / 커미션국=단가−커미션), OMH가 15일 주기로 정산.
+      </p>
 
       <div className="flex items-center justify-between">
         <span className="text-base font-semibold text-ink">Billing list</span>
