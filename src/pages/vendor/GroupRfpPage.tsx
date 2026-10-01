@@ -60,8 +60,8 @@ const amountHint = (r: GroupRfp) =>
 function settlement(r: GroupRfp, amount: number) {
   if (r.contractType === 'Commission') {
     const pct = commissionOf(r)
-    const hotel = Math.round(amount * (1 - pct / 100))
-    return { customerPay: amount, hotelReceive: hotel, omhMargin: amount - hotel, note: `단가 − 커미션 ${pct}%` }
+    const margin = Math.round((amount * pct) / 100)
+    return { customerPay: amount, hotelReceive: amount - margin, omhMargin: margin, note: `단가 − 커미션 ${pct}%` }
   }
   return { customerPay: null as number | null, hotelReceive: amount, omhMargin: null as number | null, note: 'net 지불 — 고객가 마크업은 OMH(마켓)에서 적용' }
 }

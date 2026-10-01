@@ -214,6 +214,8 @@ export function busToRfps(bus: GroupBus, hotels: Hotel[]): GroupRfp[] {
   for (const inq of bus.inquiries) {
     const our = hotels.find((h) => h.regionName.toLowerCase() === inq.regionEn.toLowerCase())
     if (!our) continue
+    // 셀러가 호텔을 특정했으면 그 호텔에만 발송 (도시가 같아도 다른 호텔은 받지 않음)
+    if (inq.hotelName && inq.hotelName.toLowerCase() !== our.name.EN.toLowerCase()) continue
     const mine = bus.quotes.find((q) => q.ref === inq.ref && q.hotelCode === our.code)
     const declined = bus.declines.some((d) => d.ref === inq.ref && d.hotelCode === our.code)
     const deal = dealOf(bus, inq.ref)

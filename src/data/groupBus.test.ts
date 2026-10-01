@@ -28,6 +28,13 @@ describe('group RFP bus (Marketplace ↔ Console)', () => {
     expect(rfps[0].commissionPct).toBe(12)
   })
 
+  it('sends a hotel-specified inquiry only to that hotel', () => {
+    publishTestInquiry({ ...inq('GRP-T-7', 'Osaka'), hotelName: 'Some Other Osaka Hotel' })
+    const osaka = HOTELS.find((h) => h.regionName === 'Osaka')!
+    publishTestInquiry({ ...inq('GRP-T-8', 'Osaka'), hotelName: osaka.name.EN })
+    expect(busToRfps(readBus(), HOTELS).map((r) => r.ref)).toEqual(['GRP-T-8'])
+  })
+
   it('derives Quoted → Won → Confirmed from quotes and the deal', () => {
     publishTestInquiry(inq('GRP-T-3', 'Osaka'))
     const our = busToRfps(readBus(), HOTELS)[0]

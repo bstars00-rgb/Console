@@ -416,9 +416,9 @@ export const RFPS: GroupRfp[] = [
     id: 'rfp-osaka-workshop', ref: 'GRP-20260924-013', sellerName: 'Kintetsu Travel (KR)',
     country: 'Japan', region: 'Osaka', contractType: 'Commission', area: '우메다', distanceKm: 4,
     checkIn: '2026-11-12', checkOut: '2026-11-14', nights: 2,
-    rooms: [{ roomType: 'Twin', count: 4 }], mealPlan: 'Breakfast', guests: 8,
+    rooms: [{ roomType: 'Twin', count: 5 }], mealPlan: 'Breakfast', guests: 10,
     nationality: '한국', groupType: '기업 워크숍', scope: 'rooms', holdRequired: false,
-    goldenKey: '우메다역 도보 5분', budgetPerRoomNight: 16000, budgetTotal: 128000, currency: 'JPY',
+    goldenKey: '우메다역 도보 5분', budgetPerRoomNight: 16000, budgetTotal: 160000, currency: 'JPY',
     quoteDeadline: inH(-6), status: 'New',
   },
 ]

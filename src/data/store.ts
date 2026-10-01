@@ -7,7 +7,7 @@ import { readJSON, writeJSON, clearNamespace } from '../lib/storage'
 import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS, RFPS } from './seed'
 import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage, GroupRfp, VendorQuote } from './types'
 
-const VERSION = 10 // v10: 취소 마감(호텔 지정)·결제 상태 (2026-10-01)
+const VERSION = 11 // v11: 취소 마감(호텔 지정)·결제 상태·5실 시드 (2026-10-01)
 
 interface DB {
   version: number

@@ -19,7 +19,7 @@ const BAL = [{ value: '', label: 'All' }, { value: 'nonzero', label: 'Balance �
 function groupToBilling(r: GroupRfp): Billing {
   const amt = r.quote?.amount ?? 0
   const pct = r.commissionPct ?? 10
-  const hotelReceive = r.contractType === 'Commission' ? Math.round(amt * (1 - pct / 100)) : amt
+  const hotelReceive = r.contractType === 'Commission' ? amt - Math.round((amt * pct) / 100) : amt
   return {
     billingNo: r.ref, // GRP-… (starts with GRP- → Group 배지)
     hotelName: `단체 · ${r.region}${r.area ? ` ${r.area}` : ''}${r.groupType ? ` (${r.groupType})` : ''}`,
