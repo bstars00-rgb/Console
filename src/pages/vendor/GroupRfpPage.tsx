@@ -7,16 +7,18 @@ import { Pager } from '../../components/ui/Pager'
 import { Modal } from '../../components/ui/Modal'
 import { Badge } from '../../components/ui/Badge'
 import { useToast } from '../../components/ui/Toast'
-import { useRfps } from '../../data/hooks'
+import { useAllRfps } from '../../data/hooks'
 import { submitVendorQuote, declineRfp, confirmRfpBooking, rejectRfpBooking } from '../../data/store'
+import { addBusDecline, addBusQuote, cancelLabel, CANCEL_REASON_LABEL, sweepUnpaid, upsertDeal } from '../../data/groupBus'
 import { usePagedFilter } from '../../lib/usePagedFilter'
 import { remaining, fmtDateTime, useNow } from '../../lib/deadline'
-import type { GroupRfp, RfpStatus, Currency, VendorQuote, CancelPolicyId } from '../../data/types'
+import type { GroupRfp, RfpStatus, Currency, VendorQuote } from '../../data/types'
 
 /**
- * Group RFP — 단체 견적 요청(역경매 공급측). 마켓플레이스 셀러 단체 문의가 호텔 콘솔에 도착.
- * 호텔: 경쟁 견적 제출(blind) → 낙찰 시 리퀘스트 예약 컨펌/거절. ※ 원본에 없던 신규(NEW).
- * 지역 타깃팅 B(거리 표시) · 취소규정 선택 · 결제 마감(호텔 설정) · 정산(OMH 대신 수금·지불).
+ * Group RFP — 단체 견적 요청(역경매 공급측). 마켓플레이스 셀러 단체 문의(5실 이상)가 호텔 콘솔에 도착.
+ * 호텔: 경쟁 견적 제출(blind) → 낙찰 시 리퀘스트 예약 컨펌/거절 → 고객 결제(마감 내) → 정산.
+ * **마켓플레이스 실연동**(groupBus · 라이브 같은 브라우저) + 데모 시드. ※ 원본에 없던 신규(NEW).
+ * 지역 타깃팅 B(도시 일치 · 거리 표시) · **취소 마감 지정(이후 취소·환불 불가)** · 결제 마감(호텔 설정) · 정산(OMH 대신 수금·지불).
  */
 
 const money = (n: number, c: Currency) => `${c} ${Math.round(n).toLocaleString()}`
@@ -31,23 +33,23 @@ const STATUS_LABEL: Record<RfpStatus, string> = {
 }
 const STATUS_OPTS = [{ value: '', label: 'All' }, ...(Object.keys(STATUS_LABEL) as RfpStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]
 
-/** 표시·필터용 유효 상태 — 신규 요청인데 회신 기한이 지났으면 '마감'(견적 제출 불가). */
-const effStatus = (r: GroupRfp, now: number): RfpStatus =>
-  r.status === 'New' && remaining(r.quoteDeadline, now).expired ? 'Expired' : r.status
+/**
+ * 표시·필터용 유효 상태 — 신규 요청인데 회신 기한이 지났으면 '마감'(견적 제출 불가),
+ * 확정인데 결제 마감이 지나도록 미결제면 '취소'(자동취소).
+ */
+const effStatus = (r: GroupRfp, now: number): RfpStatus => {
+  if (r.status === 'New' && remaining(r.quoteDeadline, now).expired) return 'Expired'
+  if (r.status === 'Confirmed' && !r.paidAt && r.paymentDueAt && now > new Date(r.paymentDueAt).getTime()) return 'Cancelled'
+  return r.status
+}
+/** 확정 건 세부 라벨 — 결제 대기 / 결제 완료 */
+const statusText = (r: GroupRfp, s: RfpStatus) => (s === 'Confirmed' ? (r.paidAt ? '확정 · 결제 완료' : '확정 · 결제 대기') : STATUS_LABEL[s])
 
 /** 인박스 정렬 우선순위 — 회신 가능한 신규(기한 임박순) → 컨펌 대기 → 견적 제출 → 종료 건. */
 const PRIORITY: Record<RfpStatus, number> = { New: 0, Won: 1, Quoted: 2, Expired: 3, Confirmed: 3, Lost: 3, Declined: 3, Cancelled: 3 }
 
-/** 취소 규정 프리셋 — 호텔이 견적 시 선택(선택권). */
-const CANCEL_POLICIES: { id: CancelPolicyId; label: string; days: number }[] = [
-  { id: 'non-refundable', label: '비환불 (Non-refundable)', days: -1 },
-  { id: 'free-3d', label: '체크인 3일 전까지 100% 무료취소', days: 3 },
-  { id: 'free-7d', label: '체크인 7일 전까지 100% 무료취소', days: 7 },
-  { id: 'free-14d', label: '체크인 14일 전까지 100% 무료취소', days: 14 },
-]
-const CANCEL_OPTS = CANCEL_POLICIES.map((p) => ({ value: p.id, label: p.label }))
-const policyOf = (id: CancelPolicyId) => CANCEL_POLICIES.find((p) => p.id === id) ?? CANCEL_POLICIES[0]
-const STD_COMMISSION = 10 // 표준 커미션 %(콘솔 표시용)
+const STD_COMMISSION = 10 // 표준 커미션 %(국가 커미션율이 없을 때)
+const commissionOf = (r: GroupRfp) => r.commissionPct ?? STD_COMMISSION
 
 const amountHint = (r: GroupRfp) =>
   r.contractType === 'Commission'
@@ -57,20 +59,24 @@ const amountHint = (r: GroupRfp) =>
 /** 정산(OMH가 대신 수금·지불) 요약. */
 function settlement(r: GroupRfp, amount: number) {
   if (r.contractType === 'Commission') {
-    const hotel = Math.round(amount * (1 - STD_COMMISSION / 100))
-    return { customerPay: amount, hotelReceive: hotel, omhMargin: amount - hotel, note: `단가 − 커미션 ${STD_COMMISSION}%` }
+    const pct = commissionOf(r)
+    const hotel = Math.round(amount * (1 - pct / 100))
+    return { customerPay: amount, hotelReceive: hotel, omhMargin: amount - hotel, note: `단가 − 커미션 ${pct}%` }
   }
   return { customerPay: null as number | null, hotelReceive: amount, omhMargin: null as number | null, note: 'net 지불 — 고객가 마크업은 OMH(마켓)에서 적용' }
 }
 
 export default function GroupRfpPage() {
-  const rfps = useRfps()
+  const rfps = useAllRfps()
   const toast = useToast()
   const now = useNow()
   const [status, setStatus] = useState('')
   const [region, setRegion] = useState('')
   const [applied, setApplied] = useState(0)
   const [active, setActive] = useState<GroupRfp | null>(null)
+
+  // 결제 마감 경과 건 자동취소 기록 (마켓플레이스와 공유 — 먼저 본 쪽이 기록)
+  useEffect(() => sweepUnpaid(now), [now])
 
   // 회신 가능한 신규 요청을 기한 임박순으로 맨 위에
   const rows = useMemo(
@@ -83,6 +89,7 @@ export default function GroupRfpPage() {
       }),
     [rfps, now],
   )
+  const liveCount = rfps.filter((r) => r.source === 'marketplace').length
 
   const regionOpts = useMemo(
     () => [{ value: '', label: 'All' }, ...Array.from(new Set(rfps.map((r) => r.region))).map((rg) => ({ value: rg, label: rg }))],
@@ -94,10 +101,18 @@ export default function GroupRfpPage() {
     if (region && r.region !== region) return false
     return true
   }
-  const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(rows, predicate, [applied])
+  const { page, pageSize, total, pageRows, setPage, setPageSize, resetPage } = usePagedFilter(rows, predicate, [applied, rfps.length])
 
   const columns: Column<GroupRfp>[] = [
-    { key: 'ref', header: 'RFP No.', align: 'left', render: (r) => <span className="font-mono text-caption">{r.ref}</span> },
+    {
+      key: 'ref', header: 'RFP No.', align: 'left',
+      render: (r) => (
+        <div>
+          <span className="font-mono text-caption">{r.ref}</span>
+          {r.source === 'marketplace' && <div><Badge tone="success">마켓 실시간</Badge></div>}
+        </div>
+      ),
+    },
     { key: 'seller', header: '고객사', align: 'left', render: (r) => r.sellerName },
     {
       key: 'dest', header: '지역 / 거리', align: 'left',
@@ -107,6 +122,7 @@ export default function GroupRfpPage() {
           <div className="text-caption text-faint">
             {r.anchorName ? `📍 ${r.anchorName} · 차량 ${r.anchorRadiusMin}분` : '지역 일치'}
             {r.distanceKm != null && <span className="ml-1 text-primary">· 우리 호텔 약 {r.distanceKm}km</span>}
+            {r.ourHotelName && <span className="ml-1">· 수신 {r.ourHotelName}</span>}
           </div>
         </div>
       ),
@@ -138,7 +154,7 @@ export default function GroupRfpPage() {
       key: 'status', header: '상태', align: 'center',
       render: (r) => {
         const s = effStatus(r, now)
-        return <Badge tone={STATUS_TONE[s]}>{STATUS_LABEL[s]}</Badge>
+        return <Badge tone={STATUS_TONE[s]}>{statusText(r, s)}</Badge>
       },
     },
   ]
@@ -155,8 +171,9 @@ export default function GroupRfpPage() {
       </FilterPanel>
 
       <p className="px-1 text-caption text-muted">
-        단체 견적 요청함 — <b>우리 호텔이 있는 도시</b>의 요청만 도착합니다(도시 불일치 시 미발송). 세부 지역이 다르면 <b>거리</b>를 표시하니 참고해 견적하세요.
-        고객사가 정한 <b>회신 기한</b> 안에 제출해야 하며(<b>남은 시간</b> 표시 · 기한 임박순 정렬), 기한이 지나면 <b>마감</b>되어 제출할 수 없습니다. 행 클릭 → <b>경쟁 견적 제출</b>(blind).
+        단체 견적 요청함(<b>5실 이상</b> 그룹 예약) — <b>우리 호텔이 있는 도시</b>의 요청만 도착합니다(도시 불일치 시 미발송). 세부 지역이 다르면 <b>거리</b>를 표시하니 참고해 견적하세요.
+        고객사가 정한 <b>회신 기한</b> 안에 제출해야 하며(<b>남은 시간</b> 표시 · 기한 임박순 정렬), 기한이 지나면 <b>마감</b>됩니다. 견적 때 <b>취소 마감</b>을 지정하세요 — 마감 이후엔 <b>취소 불가·환불 불가</b>.
+        {' '}<b className="text-success">마켓 실시간 {liveCount}건</b> — 마켓플레이스에서 접수된 문의가 같은 브라우저(라이브)에서 바로 도착합니다.
       </p>
 
       <div>
@@ -172,53 +189,82 @@ export default function GroupRfpPage() {
 // ─────────────────────────── 상세 + 견적/컨펌 ───────────────────────────
 /** 견적 유효기한 기본값 — 회신 기한 + 3일 (YYYY-MM-DD) */
 const defaultValidUntil = (deadlineIso: string) => new Date(new Date(deadlineIso).getTime() + 3 * 86400000).toISOString().slice(0, 10)
+/** 체크인 N일 전 (YYYY-MM-DD) */
+const daysBefore = (checkIn: string, n: number) => new Date(new Date(`${checkIn}T00:00:00Z`).getTime() - n * 86400000).toISOString().slice(0, 10)
+const todayStr = () => new Date().toISOString().slice(0, 10)
 
 function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; onClose: () => void; toast: ReturnType<typeof useToast> }) {
   const [amount, setAmount] = useState('')
   const [availability, setAvailability] = useState('')
-  const [cancelPolicy, setCancelPolicy] = useState<CancelPolicyId>('free-3d')
+  /** 취소 마감 — 날짜 지정 / 마감 없음(처음부터 취소·환불 불가) */
+  const [noCancel, setNoCancel] = useState(false)
+  const [cancelDeadline, setCancelDeadline] = useState('')
   const [deadlineHours, setDeadlineHours] = useState('3')
   const [validUntil, setValidUntil] = useState('')
   const [note, setNote] = useState('')
 
   useEffect(() => {
-    setAmount(''); setAvailability(`${roomsText(rfp)} 확보 가능`); setCancelPolicy('free-3d')
-    setDeadlineHours('3'); setValidUntil(defaultValidUntil(rfp.quoteDeadline)); setNote('')
+    setAmount(''); setAvailability(`${roomsText(rfp)} 확보 가능`); setNoCancel(false)
+    setCancelDeadline(daysBefore(rfp.checkIn, 3)); setDeadlineHours('3'); setValidUntil(defaultValidUntil(rfp.quoteDeadline)); setNote('')
   }, [rfp.id, rfp.quoteDeadline]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rem = remaining(rfp.quoteDeadline, now)
   const eff = effStatus(rfp, now)
+  const live = rfp.source === 'marketplace'
   // 회신 기한 내 신규 요청만 견적 제출 가능 — 기한 경과 시 마감
   const quoting = eff === 'New'
   const awarded = rfp.status === 'Won'
   const amtNum = Number(amount) || 0
   const hrs = Math.max(1, Number(deadlineHours) || 3)
-  const canSubmit = quoting && amtNum > 0 && availability.trim() && validUntil
+  const cdlInvalid = !noCancel && (!cancelDeadline || cancelDeadline < todayStr() || cancelDeadline >= rfp.checkIn)
+  const canSubmit = quoting && amtNum > 0 && availability.trim() && validUntil && !cdlInvalid
 
   const submit = () => {
     if (!canSubmit) return
-    const pol = policyOf(cancelPolicy)
-    const freeCancelUntil = pol.days > 0 ? new Date(new Date(rfp.checkIn).getTime() - pol.days * 86400000).toISOString().slice(0, 10) : undefined
-    const q: VendorQuote = {
-      amount: amtNum, currency: rfp.currency, availability: availability.trim(),
-      cancelPolicy, cancellation: pol.label, freeCancelUntil, paymentDeadlineHours: hrs,
-      validUntil, note: note.trim() || undefined, submittedAt: new Date().toISOString().slice(0, 10),
+    const cdl = noCancel ? undefined : cancelDeadline
+    if (live && rfp.ourHotelCode) {
+      addBusQuote({
+        ref: rfp.ref, quoteId: `${rfp.ref}-${rfp.ourHotelCode}`, hotelCode: rfp.ourHotelCode, hotelName: rfp.ourHotelName ?? rfp.ourHotelCode, city: rfp.region,
+        amount: amtNum, currency: rfp.currency, availability: availability.trim(), cancelDeadline: cdl, paymentDeadlineHours: hrs,
+        validUntil, note: note.trim() || undefined, submittedAt: new Date().toISOString(),
+      })
+      toast.push('견적을 제출했습니다 — 마켓플레이스 고객사 견적 리스트에 바로 표시됩니다.', 'success')
+    } else {
+      const q: VendorQuote = {
+        amount: amtNum, currency: rfp.currency, availability: availability.trim(), cancelDeadline: cdl, cancellation: cancelLabel(cdl),
+        paymentDeadlineHours: hrs, validUntil, note: note.trim() || undefined, submittedAt: new Date().toISOString().slice(0, 10),
+      }
+      submitVendorQuote(rfp.id, q)
+      toast.push('견적을 제출했습니다 — 고객사 리스트업에 반영됩니다.', 'success')
     }
-    submitVendorQuote(rfp.id, q)
-    toast.push('견적을 제출했습니다 — 고객사 리스트업에 반영됩니다.', 'success')
     onClose()
   }
-  const decline = () => { declineRfp(rfp.id); toast.push('요청을 거절했습니다.', 'info'); onClose() }
-  const confirmBooking = () => { confirmRfpBooking(rfp.id); toast.push('예약을 컨펌했습니다 — 확정되었습니다.', 'success'); onClose() }
-  const rejectBooking = () => { rejectRfpBooking(rfp.id); toast.push('리퀘스트 예약을 거절했습니다 — 문의가 취소됩니다.', 'info'); onClose() }
+  const decline = () => {
+    if (live && rfp.ourHotelCode) addBusDecline(rfp.ref, rfp.ourHotelCode)
+    else declineRfp(rfp.id)
+    toast.push('요청을 거절했습니다.', 'info'); onClose()
+  }
+  const confirmBooking = () => {
+    if (live) upsertDeal(rfp.ref, { hotelDecision: 'confirmed', decidedAt: new Date().toISOString() })
+    else confirmRfpBooking(rfp.id)
+    toast.push(`예약을 컨펌했습니다 — 고객사가 ${rfp.quote?.paymentDeadlineHours ?? 3}시간 내 계약 동의·결제하면 확정됩니다.`, 'success'); onClose()
+  }
+  const rejectBooking = () => {
+    const at = new Date().toISOString()
+    if (live) upsertDeal(rfp.ref, { hotelDecision: 'rejected', decidedAt: at, cancelledAt: at, cancelReason: 'hotel_rejected' })
+    else rejectRfpBooking(rfp.id)
+    toast.push('리퀘스트 예약을 거절했습니다 — 문의가 취소됩니다.', 'info'); onClose()
+  }
 
   const info = (label: string, value: React.ReactNode) => (
     <div><div className="text-caption text-faint">{label}</div><div className="text-base text-ink">{value}</div></div>
   )
   const set = settlement(rfp, rfp.quote?.amount ?? amtNum)
+  const payRem = rfp.paymentDueAt ? remaining(rfp.paymentDueAt, now) : null
+  const cancelReason = rfp.cancelReason ?? (eff === 'Cancelled' && rfp.status === 'Confirmed' ? 'unpaid_timeout' : undefined)
 
   return (
-    <Modal open onClose={onClose} width={720} title={`Group RFP — ${rfp.ref}`}
+    <Modal open onClose={onClose} width={760} title={`Group RFP — ${rfp.ref}`}
       footer={
         quoting ? (
           <><Button variant="danger" onClick={decline}><XCircle size={14} /> 거절</Button>
@@ -232,11 +278,13 @@ function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; o
       }
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Badge tone={STATUS_TONE[eff]}>{STATUS_LABEL[eff]}</Badge>
+        <Badge tone={STATUS_TONE[eff]}>{statusText(rfp, eff)}</Badge>
+        {live && <Badge tone="success">마켓 실시간</Badge>}
         <span className="text-caption text-muted">고객사 {rfp.sellerName} · 회신 기한 {fmtDateTime(rfp.quoteDeadline)}</span>
         {(eff === 'New' || eff === 'Quoted') && <Badge tone={rem.tone}>⏱ {rem.label}</Badge>}
         {rfp.holdRequired && <Badge tone="info">객실 홀드 요청</Badge>}
         {rfp.distanceKm != null && <Badge tone="neutral">우리 호텔 약 {rfp.distanceKm}km</Badge>}
+        {rfp.ourHotelName && <Badge tone="neutral">수신 호텔 {rfp.ourHotelName}</Badge>}
       </div>
 
       {eff === 'Expired' && (
@@ -287,13 +335,31 @@ function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; o
             ) : null}
           </p>
           <Field label="가용 확보"><TextInput value={availability} onChange={(e) => setAvailability(e.target.value)} className="w-full" /></Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="취소 규정 (선택)"><Select value={cancelPolicy} onChange={(v) => setCancelPolicy(v as CancelPolicyId)} options={CANCEL_OPTS} /></Field>
-            <Field label="결제 마감 (컨펌 후, 시간)">
-              <TextInput type="number" min={1} value={deadlineHours} onChange={(e) => setDeadlineHours(e.target.value)} className="w-full" />
-            </Field>
+
+          {/* 취소 마감 — 호텔 지정. 마감 이후 취소 불가·환불 불가 */}
+          <div className="rounded border border-line bg-canvas/40 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="text-base font-semibold text-ink">취소 마감</span>
+              <span className="text-caption text-muted">— 이 날짜 23:59까지 예약 전체 무료취소(전액 환불), <b className="text-danger">이후엔 취소 불가·환불 불가</b></span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <DateInput value={noCancel ? '' : cancelDeadline} onChange={(v) => { setNoCancel(false); setCancelDeadline(v) }} className="w-40" />
+              {[3, 7, 14].map((n) => (
+                <Button key={n} variant="secondary" onClick={() => { setNoCancel(false); setCancelDeadline(daysBefore(rfp.checkIn, n)) }}>체크인 {n}일 전</Button>
+              ))}
+              <label className="ml-1 flex cursor-pointer items-center gap-1.5 text-base text-ink">
+                <input type="checkbox" checked={noCancel} onChange={(e) => setNoCancel(e.target.checked)} /> 취소 마감 없음 (처음부터 취소·환불 불가)
+              </label>
+            </div>
+            <p className={`mt-1 text-caption ${cdlInvalid ? 'text-danger' : 'text-muted'}`}>
+              {cdlInvalid ? '취소 마감은 오늘 이후 · 체크인 전 날짜로 지정하세요.' : `고객사에 표시: ${cancelLabel(noCancel ? undefined : cancelDeadline)}`}
+            </p>
           </div>
-          <p className="-mt-1 text-caption text-muted">※ 낙찰·컨펌 후 <b>{hrs}시간</b> 내 미결제 시 자동취소(호텔 설정). 취소 규정은 위 프리셋에서 선택.</p>
+
+          <Field label="결제 마감 (컨펌 후, 시간)">
+            <TextInput type="number" min={1} value={deadlineHours} onChange={(e) => setDeadlineHours(e.target.value)} className="w-40" />
+          </Field>
+          <p className="-mt-1 text-caption text-muted">※ 낙찰·컨펌 후 <b>{hrs}시간</b> 내 고객사가 계약 조건에 동의하고 결제하지 않으면 자동취소(호텔 설정).</p>
           <Field label="메모 (선택)"><TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="부대 조건·특이사항" className="w-full" /></Field>
         </div>
       )}
@@ -305,8 +371,7 @@ function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; o
           <div className="grid grid-cols-2 gap-3 rounded border border-line bg-white p-3 md:grid-cols-3">
             {info('견적 금액', money(rfp.quote.amount, rfp.quote.currency))}
             {info('가용', rfp.quote.availability)}
-            {info('취소 규정', rfp.quote.cancellation)}
-            {info('무료취소 마감', rfp.quote.freeCancelUntil ?? (rfp.quote.cancelPolicy === 'non-refundable' ? '비환불' : '—'))}
+            {info('취소 조건', rfp.quote.cancellation)}
             {info('결제 마감', `컨펌 후 ${rfp.quote.paymentDeadlineHours}시간`)}
             {info('유효기한', rfp.quote.validUntil)}
             {rfp.quote.note && info('메모', rfp.quote.note)}
@@ -319,7 +384,7 @@ function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; o
             {info('호텔 수령(OMH→)', money(set.hotelReceive, rfp.currency))}
             {info('정산 방식', set.note)}
           </div>
-          <p className="mt-1 text-caption text-faint">OMH가 Merchant of Record — 고객사가 OMH에 결제, OMH가 호텔에 정산(Billings 15일 주기). 취소 수수료는 정책 구간에 따라 고객 청구 후 호텔 전달.</p>
+          <p className="mt-1 text-caption text-faint">OMH가 Merchant of Record — 고객사가 OMH에 결제, OMH가 호텔에 정산(Billings 15일 주기). 취소 마감 전 취소는 전액 환불, 마감 후 취소·환불 불가.</p>
         </div>
       )}
 
@@ -327,17 +392,31 @@ function RfpDetail({ rfp, now, onClose, toast }: { rfp: GroupRfp; now: number; o
       {awarded && rfp.quote && (
         <div className="mt-3 rounded border border-warning/40 bg-warning/15 px-3 py-2 text-base text-[#9a6a00]">
           🎉 <b>낙찰</b> — 리퀘스트 예약이 생성되었습니다. <b>예약을 컨펌</b>하거나 거절(문의 취소)하세요.
-          컨펌 후 고객이 <b>{rfp.quote.paymentDeadlineHours}시간</b> 내 미결제 시 자동취소됩니다.
+          컨펌 후 고객이 <b>{rfp.quote.paymentDeadlineHours}시간</b> 내 계약 동의·결제하지 않으면 자동취소됩니다.
         </div>
       )}
       {rfp.status === 'Quoted' && (
         <div className="mt-3 rounded border border-info/30 bg-info/10 px-3 py-2 text-base text-info">견적 제출 완료 — 고객사 선택 결과를 기다립니다. (경쟁 견적 blind)</div>
       )}
-      {rfp.status === 'Confirmed' && (
-        <div className="mt-3 rounded border border-success/30 bg-success/10 px-3 py-2 text-base font-medium text-success">✅ 예약 확정 — Billings 정산 대상으로 편입됩니다.</div>
+      {eff === 'Confirmed' && !rfp.paidAt && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/15 px-3 py-2 text-base text-[#9a6a00]">
+          ✅ 컨펌 완료 — <b>고객사 결제 대기</b>{rfp.paymentDueAt && <> · 마감 {fmtDateTime(rfp.paymentDueAt)}</>}
+          {payRem && !payRem.expired && <Badge tone={payRem.tone}>⏱ {payRem.label}</Badge>}
+          <span className="text-caption">— 마감까지 미결제 시 자동취소</span>
+        </div>
       )}
-      {rfp.status === 'Cancelled' && (
-        <div className="mt-3 rounded border border-danger/30 bg-danger/10 px-3 py-2 text-base text-danger">문의가 취소되었습니다.</div>
+      {eff === 'Confirmed' && rfp.paidAt && (
+        <div className="mt-3 rounded border border-success/30 bg-success/10 px-3 py-2 text-base font-medium text-success">
+          ✅ 고객사 결제 완료({fmtDateTime(rfp.paidAt)}) — 예약 확정 · Billings 정산 대상으로 편입됩니다.
+        </div>
+      )}
+      {eff === 'Cancelled' && (
+        <div className="mt-3 rounded border border-danger/30 bg-danger/10 px-3 py-2 text-base text-danger">
+          문의가 취소되었습니다{cancelReason ? ` — ${CANCEL_REASON_LABEL[cancelReason]}` : ''}.
+        </div>
+      )}
+      {eff === 'Lost' && (
+        <div className="mt-3 rounded border border-line bg-canvas/40 px-3 py-2 text-base text-muted">고객사가 다른 호텔 견적을 선택했습니다.</div>
       )}
     </Modal>
   )

@@ -7,7 +7,7 @@ import { readJSON, writeJSON, clearNamespace } from '../lib/storage'
 import { HOTELS, ROOM_TYPES, RATE_PLANS, BOOKINGS, BILLINGS, NOTICES, FAQS, PROMOTIONS, RFPS } from './seed'
 import type { Hotel, RoomType, RatePlan, Booking, Billing, BoardPost, Promotion, BookingStatus, HotelImage, GroupRfp, VendorQuote } from './types'
 
-const VERSION = 9
+const VERSION = 10 // v10: 취소 마감(호텔 지정)·결제 상태 (2026-10-01)
 
 interface DB {
   version: number
@@ -86,15 +86,23 @@ export function declineRfp(id: string) {
   commit()
 }
 
-/** 낙찰 건 호텔 컨펌 → 예약 확정(Confirmed). 리퀘스트 예약 → 확정. */
+/** 낙찰 건 호텔 컨펌 → 확정(Confirmed) — 컨펌 시각부터 결제 마감(N시간) 카운트. (시드 RFP용 · 마켓 실시간 RFP는 groupBus) */
 export function confirmRfpBooking(id: string) {
-  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Confirmed' } : r)) }
+  const at = new Date().toISOString()
+  db = {
+    ...db,
+    rfps: db.rfps.map((r) =>
+      r.id === id
+        ? { ...r, status: 'Confirmed', decidedAt: at, paymentDueAt: new Date(Date.now() + (r.quote?.paymentDeadlineHours ?? 3) * 3600000).toISOString() }
+        : r,
+    ),
+  }
   commit()
 }
 
 /** 낙찰 건 호텔 거절 → 문의 취소(Cancelled). */
 export function rejectRfpBooking(id: string) {
-  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Cancelled' } : r)) }
+  db = { ...db, rfps: db.rfps.map((r) => (r.id === id ? { ...r, status: 'Cancelled', cancelReason: 'hotel_rejected' } : r)) }
   commit()
 }
 

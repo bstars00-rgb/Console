@@ -253,19 +253,19 @@ export interface RfpRoomReq {
   count: number
 }
 
-/** 취소 규정 프리셋 — 호텔이 견적 시 선택(선택권). */
-export type CancelPolicyId = 'non-refundable' | 'free-3d' | 'free-7d' | 'free-14d'
-
 export interface VendorQuote {
   /** 견적 금액 — 계약형태(Net국가=net / Commission국가=단가)에 따름 */
   amount: number
   currency: Currency
   /** 가용 확보 여부/메모 (예: "Twin 5 + Single 5 전실 확보") */
   availability: string
-  /** 취소 규정 — 호텔이 프리셋에서 선택 */
-  cancelPolicy: CancelPolicyId
+  /**
+   * 취소 마감(YYYY-MM-DD, 그날 23:59까지) — **호텔이 오퍼 때 지정**(현업 확정 2026-10-01).
+   * 마감 전 = 예약 전체 무료취소(전액 환불) · 마감 후 = 취소 불가·환불 불가. 없으면 처음부터 취소·환불 불가.
+   */
+  cancelDeadline?: string
+  /** 표시용 취소 조건 문구 */
   cancellation: string
-  freeCancelUntil?: string
   /** 컨펌 후 결제 마감(시간) — 호텔이 설정. 미결제 시 자동취소. 기본 3h */
   paymentDeadlineHours: number
   validUntil: string
@@ -307,4 +307,16 @@ export interface GroupRfp {
   quoteDeadline: string
   status: RfpStatus
   quote?: VendorQuote
+  /** seed = 콘솔 데모 시드 / marketplace = 마켓플레이스 실시간 문의(groupBus 연동) */
+  source?: 'seed' | 'marketplace'
+  /** 이 RFP를 받은 우리 호텔(도시 일치) — 마켓 실시간 문의 */
+  ourHotelCode?: string
+  ourHotelName?: string
+  /** 커미션 국가 커미션율(%) — 정산용. 없으면 표준 10% */
+  commissionPct?: number
+  /** 호텔 컨펌 시각 · 결제 마감 · 결제 완료 · 취소 사유 */
+  decidedAt?: string
+  paymentDueAt?: string
+  paidAt?: string
+  cancelReason?: 'hotel_rejected' | 'unpaid_timeout' | 'seller_cancelled'
 }

@@ -393,7 +393,7 @@ export const RFPS: GroupRfp[] = [
     quoteDeadline: inH(-20), status: 'Won',
     quote: {
       amount: 2650000, currency: 'KRW', availability: 'Twin 8 + Double 3 전실 확보 가능',
-      cancelPolicy: 'free-7d', cancellation: '체크인 7일 전까지 무료취소', freeCancelUntil: '2026-10-29',
+      cancelDeadline: '2026-10-29', cancellation: '2026-10-29 23:59까지 무료취소 · 이후 취소·환불 불가',
       paymentDeadlineHours: 6, validUntil: '2026-10-01', note: '연회장 별도 견적 포함(조식 20인).', submittedAt: '2026-09-22',
     },
   },
@@ -404,10 +404,10 @@ export const RFPS: GroupRfp[] = [
     rooms: [{ roomType: 'Twin', count: 6 }], mealPlan: 'Half Board', guests: 12,
     nationality: '한국', groupType: '팸투어', scope: 'rooms', holdRequired: false,
     goldenKey: '미케 해변 도보권 + 오션뷰', budgetPerRoomNight: 55000, budgetTotal: 1320000, currency: 'VND',
-    quoteDeadline: inH(-50), status: 'Confirmed',
+    quoteDeadline: inH(-50), status: 'Confirmed', decidedAt: inH(-40), paidAt: inH(-38),
     quote: {
       amount: 1230000, currency: 'VND', availability: 'Twin 6 오션뷰 확보',
-      cancelPolicy: 'non-refundable', cancellation: '비환불(그룹 특가)', paymentDeadlineHours: 3,
+      cancellation: '취소·환불 불가 (마감 없음)', paymentDeadlineHours: 3,
       validUntil: '2026-09-28', note: '', submittedAt: '2026-09-16',
     },
   },
